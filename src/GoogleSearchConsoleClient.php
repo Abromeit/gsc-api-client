@@ -9,6 +9,8 @@ use Google\Service\SearchConsole;
 use Google\Service\SearchConsole\SitesListResponse;
 use Google\Service\SearchConsole\WmxSite;
 use InvalidArgumentException;
+use DateTimeInterface;
+use DateTime;
 
 class GoogleSearchConsoleClient
 {
@@ -20,6 +22,8 @@ class GoogleSearchConsoleClient
 
     private SearchConsole $searchConsole;
     private ?string $property = null;
+    private ?DateTimeInterface $startDate = null;
+    private ?DateTimeInterface $endDate = null;
 
     public function __construct(
         private readonly Client $client
@@ -106,6 +110,165 @@ class GoogleSearchConsoleClient
     public function isDomainProperty(string $siteUrl): bool
     {
         return str_starts_with($siteUrl, self::DOMAIN_PROPERTY_PREFIX);
+    }
+
+    /**
+     * Set both start and end dates for data retrieval.
+     *
+     * @param  DateTimeInterface $startDate The start date
+     * @param  DateTimeInterface $endDate   The end date
+     * @return self
+     *
+     * @throws InvalidArgumentException If end date is before start date
+     */
+    public function setDates(DateTimeInterface $startDate, DateTimeInterface $endDate): self
+    {
+        if ($endDate < $startDate) {
+            throw new InvalidArgumentException(
+                'End date cannot be before start date.'
+            );
+        }
+
+        $this->startDate = $startDate;
+        $this->endDate = $endDate;
+        return $this;
+    }
+
+    /**
+     * Get both start and end dates.
+     *
+     * @return array{start: ?DateTimeInterface, end: ?DateTimeInterface} Array with start and end dates
+     */
+    public function getDates(): array
+    {
+        return [
+            'start' => $this->startDate,
+            'end' => $this->endDate
+        ];
+    }
+
+    /**
+     * Check if both start and end dates are set.
+     *
+     * @return bool True if both dates are set, false otherwise
+     */
+    public function hasDates(): bool
+    {
+        return $this->startDate !== null && $this->endDate !== null;
+    }
+
+    /**
+     * Set the start date for data retrieval.
+     *
+     * @param  DateTimeInterface $date The start date
+     * @return self
+     *
+     * @throws InvalidArgumentException If start date is after end date (if set)
+     */
+    public function setStartDate(DateTimeInterface $date): self
+    {
+        if ($this->hasEndDate() && $date > $this->endDate) {
+            throw new InvalidArgumentException(
+                'Start date cannot be after end date.'
+            );
+        }
+
+        $this->startDate = $date;
+        return $this;
+    }
+
+    /**
+     * Set the end date for data retrieval.
+     *
+     * @param  DateTimeInterface $date The end date
+     * @return self
+     *
+     * @throws InvalidArgumentException If end date is before start date (if set)
+     */
+    public function setEndDate(DateTimeInterface $date): self
+    {
+        if ($this->hasStartDate() && $date < $this->startDate) {
+            throw new InvalidArgumentException(
+                'End date cannot be before start date.'
+            );
+        }
+
+        $this->endDate = $date;
+        return $this;
+    }
+
+    /**
+     * Get the currently set start date.
+     *
+     * @return DateTimeInterface|null The start date or null if none is set
+     */
+    public function getStartDate(): ?DateTimeInterface
+    {
+        return $this->startDate;
+    }
+
+    /**
+     * Get the currently set end date.
+     *
+     * @return DateTimeInterface|null The end date or null if none is set
+     */
+    public function getEndDate(): ?DateTimeInterface
+    {
+        return $this->endDate;
+    }
+
+    /**
+     * Check if a start date is set.
+     *
+     * @return bool True if a start date is set, false otherwise
+     */
+    public function hasStartDate(): bool
+    {
+        return $this->startDate !== null;
+    }
+
+    /**
+     * Check if an end date is set.
+     *
+     * @return bool True if an end date is set, false otherwise
+     */
+    public function hasEndDate(): bool
+    {
+        return $this->endDate !== null;
+    }
+
+    /**
+     * Clear the start date.
+     *
+     * @return self
+     */
+    public function clearStartDate(): self
+    {
+        $this->startDate = null;
+        return $this;
+    }
+
+    /**
+     * Clear the end date.
+     *
+     * @return self
+     */
+    public function clearEndDate(): self
+    {
+        $this->endDate = null;
+        return $this;
+    }
+
+    /**
+     * Clear both start and end dates.
+     *
+     * @return self
+     */
+    public function clearDates(): self
+    {
+        $this->startDate = null;
+        $this->endDate = null;
+        return $this;
     }
 
     public function getSearchPerformance(){

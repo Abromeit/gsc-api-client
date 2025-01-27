@@ -13,4 +13,10 @@
             <directory>src</directory>
         </include>
     </source>
-</phpunit> 
+    <coverage>
+        <report>
+            <html outputDirectory="coverage"/>
+            <text outputFile="php://stdout" showOnlySummary="true"/>
+        </report>
+    </coverage>
+</phpunit>

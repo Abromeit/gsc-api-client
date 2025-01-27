@@ -12,6 +12,8 @@ use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
 use InvalidArgumentException;
+use DateTime;
+use DateTimeInterface;
 
 class GoogleSearchConsoleClientTest extends TestCase
 {
@@ -46,6 +48,176 @@ class GoogleSearchConsoleClientTest extends TestCase
     {
         $this->assertFalse($this->client->hasProperty());
         $this->assertNull($this->client->getProperty());
+    }
+
+    public function testInitialStateHasNoDates(): void
+    {
+        $this->assertFalse($this->client->hasStartDate());
+        $this->assertFalse($this->client->hasEndDate());
+        $this->assertNull($this->client->getStartDate());
+        $this->assertNull($this->client->getEndDate());
+    }
+
+    public function testSetStartDate(): void
+    {
+        $date = new DateTime('2024-01-01');
+        $result = $this->client->setStartDate($date);
+
+        $this->assertSame($this->client, $result);
+        $this->assertTrue($this->client->hasStartDate());
+        $this->assertEquals($date, $this->client->getStartDate());
+    }
+
+    public function testSetEndDate(): void
+    {
+        $date = new DateTime('2024-12-31');
+        $result = $this->client->setEndDate($date);
+
+        $this->assertSame($this->client, $result);
+        $this->assertTrue($this->client->hasEndDate());
+        $this->assertEquals($date, $this->client->getEndDate());
+    }
+
+    public function testSetStartDateAfterEndDateThrowsException(): void
+    {
+        $endDate = new DateTime('2024-01-01');
+        $this->client->setEndDate($endDate);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Start date cannot be after end date.');
+
+        $this->client->setStartDate(new DateTime('2024-01-02'));
+    }
+
+    public function testSetEndDateBeforeStartDateThrowsException(): void
+    {
+        $startDate = new DateTime('2024-01-02');
+        $this->client->setStartDate($startDate);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('End date cannot be before start date.');
+
+        $this->client->setEndDate(new DateTime('2024-01-01'));
+    }
+
+    public function testSetValidDateRange(): void
+    {
+        $startDate = new DateTime('2024-01-01');
+        $endDate = new DateTime('2024-12-31');
+
+        $this->client->setStartDate($startDate)
+            ->setEndDate($endDate);
+
+        $this->assertTrue($this->client->hasStartDate());
+        $this->assertTrue($this->client->hasEndDate());
+        $this->assertEquals($startDate, $this->client->getStartDate());
+        $this->assertEquals($endDate, $this->client->getEndDate());
+    }
+
+    public function testSetSameDateForStartAndEnd(): void
+    {
+        $date = new DateTime('2024-01-01');
+
+        $this->client->setStartDate($date)
+            ->setEndDate($date);
+
+        $this->assertEquals($date, $this->client->getStartDate());
+        $this->assertEquals($date, $this->client->getEndDate());
+    }
+
+    public function testClearStartDate(): void
+    {
+        // Set a date first
+        $date = new DateTime('2024-01-01');
+        $this->client->setStartDate($date);
+        $this->assertTrue($this->client->hasStartDate());
+
+        // Clear it
+        $result = $this->client->clearStartDate();
+
+        // Verify fluent interface and cleared state
+        $this->assertSame($this->client, $result);
+        $this->assertFalse($this->client->hasStartDate());
+        $this->assertNull($this->client->getStartDate());
+    }
+
+    public function testClearEndDate(): void
+    {
+        // Set a date first
+        $date = new DateTime('2024-12-31');
+        $this->client->setEndDate($date);
+        $this->assertTrue($this->client->hasEndDate());
+
+        // Clear it
+        $result = $this->client->clearEndDate();
+
+        // Verify fluent interface and cleared state
+        $this->assertSame($this->client, $result);
+        $this->assertFalse($this->client->hasEndDate());
+        $this->assertNull($this->client->getEndDate());
+    }
+
+    public function testClearDates(): void
+    {
+        // Set both dates
+        $startDate = new DateTime('2024-01-01');
+        $endDate = new DateTime('2024-12-31');
+
+        $this->client->setStartDate($startDate)
+            ->setEndDate($endDate);
+
+        $this->assertTrue($this->client->hasStartDate());
+        $this->assertTrue($this->client->hasEndDate());
+
+        // Clear both
+        $result = $this->client->clearDates();
+
+        // Verify fluent interface and cleared state
+        $this->assertSame($this->client, $result);
+        $this->assertFalse($this->client->hasStartDate());
+        $this->assertFalse($this->client->hasEndDate());
+        $this->assertNull($this->client->getStartDate());
+        $this->assertNull($this->client->getEndDate());
+    }
+
+    public function testClearStartDateAllowsSettingLaterDate(): void
+    {
+        // Set initial dates
+        $startDate = new DateTime('2024-01-01');
+        $endDate = new DateTime('2024-12-31');
+
+        $this->client->setStartDate($startDate)
+            ->setEndDate($endDate);
+
+        // Clear end date first (to avoid validation error)
+        $this->client->clearEndDate();
+        // Then clear start date
+        $this->client->clearStartDate();
+
+        $newStartDate = new DateTime('2025-01-01');
+        $this->client->setStartDate($newStartDate);
+
+        $this->assertEquals($newStartDate, $this->client->getStartDate());
+    }
+
+    public function testClearEndDateAllowsSettingEarlierDate(): void
+    {
+        // Set initial dates
+        $startDate = new DateTime('2024-01-01');
+        $endDate = new DateTime('2024-12-31');
+
+        $this->client->setStartDate($startDate)
+            ->setEndDate($endDate);
+
+        // Clear start date first (to avoid validation error)
+        $this->client->clearStartDate();
+        // Then clear end date
+        $this->client->clearEndDate();
+
+        $newEndDate = new DateTime('2023-12-31');
+        $this->client->setEndDate($newEndDate);
+
+        $this->assertEquals($newEndDate, $this->client->getEndDate());
     }
 
     public function testGetPropertiesReturnsArrayOfSites(): void
@@ -213,5 +385,87 @@ class GoogleSearchConsoleClientTest extends TestCase
             'domain property with port' => ['sc-domain:example.com:8080', true],
             'domain property with subdomain' => ['sc-domain:sub.example.com', true],
         ];
+    }
+
+    public function testSetDates(): void
+    {
+        $startDate = new DateTime('2024-01-01');
+        $endDate = new DateTime('2024-12-31');
+
+        $result = $this->client->setDates($startDate, $endDate);
+
+        $this->assertSame($this->client, $result);
+        $this->assertTrue($this->client->hasDates());
+        $this->assertEquals($startDate, $this->client->getStartDate());
+        $this->assertEquals($endDate, $this->client->getEndDate());
+    }
+
+    public function testSetDatesWithInvalidRangeThrowsException(): void
+    {
+        $startDate = new DateTime('2024-12-31');
+        $endDate = new DateTime('2024-01-01');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('End date cannot be before start date.');
+
+        $this->client->setDates($startDate, $endDate);
+    }
+
+    public function testGetDatesWithBothDatesSet(): void
+    {
+        $startDate = new DateTime('2024-01-01');
+        $endDate = new DateTime('2024-12-31');
+
+        $this->client->setStartDate($startDate)
+            ->setEndDate($endDate);
+
+        $dates = $this->client->getDates();
+
+        $this->assertArrayHasKey('start', $dates);
+        $this->assertArrayHasKey('end', $dates);
+        $this->assertEquals($startDate, $dates['start']);
+        $this->assertEquals($endDate, $dates['end']);
+    }
+
+    public function testGetDatesWithNoDatesSet(): void
+    {
+        $dates = $this->client->getDates();
+
+        $this->assertArrayHasKey('start', $dates);
+        $this->assertArrayHasKey('end', $dates);
+        $this->assertNull($dates['start']);
+        $this->assertNull($dates['end']);
+    }
+
+    public function testHasDatesWithBothDatesSet(): void
+    {
+        $startDate = new DateTime('2024-01-01');
+        $endDate = new DateTime('2024-12-31');
+
+        $this->client->setStartDate($startDate)
+            ->setEndDate($endDate);
+
+        $this->assertTrue($this->client->hasDates());
+    }
+
+    public function testHasDatesWithOnlyStartDateSet(): void
+    {
+        $startDate = new DateTime('2024-01-01');
+        $this->client->setStartDate($startDate);
+
+        $this->assertFalse($this->client->hasDates());
+    }
+
+    public function testHasDatesWithOnlyEndDateSet(): void
+    {
+        $endDate = new DateTime('2024-12-31');
+        $this->client->setEndDate($endDate);
+
+        $this->assertFalse($this->client->hasDates());
+    }
+
+    public function testHasDatesWithNoDatesSet(): void
+    {
+        $this->assertFalse($this->client->hasDates());
     }
 }
