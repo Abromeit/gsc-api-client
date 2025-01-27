@@ -1,0 +1,52 @@
+#
+# Description:
+#   Default .editorconfig for generic projects.
+#
+#   https://editorconfig.org/
+#
+# Version:
+#   2021-07-05a
+#
+# Author:
+#   KOCH ESSEN Kommunikation + Design GmbH
+#   https://koch-essen.de/
+#   d.abromeit@koch-essen.de
+#
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.json]
+insert_final_newline = false
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.svg]
+insert_final_newline = false
+
+[*.webmanifest]
+insert_final_newline = false
+
+[.htaccess]
+insert_final_newline = true
+
+[.htpasswd]
+insert_final_newline = true
+
+[package.json]
+# The indent size used in the `package.json` file cannot be changed
+# see https://github.com/npm/npm/pull/3180#issuecomment-16336516
+indent_size = 2
+indent_style = space
+
+[{robots.txt,robots-dev.txt,robots-http.txt,robots-https.txt,robots-nonssl.txt,robots-ssl.txt}]
+charset = utf-8
+insert_final_newline = true
