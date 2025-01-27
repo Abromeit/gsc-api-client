@@ -1,0 +1,27 @@
+# <type>[(optional scope)]: <description>
+#
+# [optional body]
+#
+# [optional footer(s)]
+#
+# Types:
+#   feat     (new feature)
+#   fix      (bug fix)
+#   docs     (documentation only changes)
+#   style    (formatting, missing semi colons, etc; no code change)
+#   refactor (refactoring production code)
+#   test     (adding missing tests, refactoring tests)
+#   chore    (updating grunt tasks etc; no production code change)
+#   perf     (performance improvements)
+#
+# Breaking Changes:
+#   Add ! after type/scope: feat!: or feat(scope)!:
+#   Add BREAKING CHANGE: <description> in footer
+#
+# Examples:
+#   feat(client): add getProperties method
+#   fix(auth): handle expired tokens
+#   docs: update README with auth examples
+#   feat!: drop support for PHP 8.1
+#
+# For more information: https://www.conventionalcommits.org/
