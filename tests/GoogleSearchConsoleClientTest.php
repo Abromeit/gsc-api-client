@@ -187,4 +187,31 @@ class GoogleSearchConsoleClientTest extends TestCase
             $this->assertEquals('https://example.com/', $this->client->getProperty());
         }
     }
+
+    /**
+     * @dataProvider domainPropertyProvider
+     */
+    public function testIsDomainProperty(string $url, bool $expected): void
+    {
+        $this->assertSame($expected, $this->client->isDomainProperty($url));
+    }
+
+    public static function domainPropertyProvider(): array
+    {
+        return [
+            'domain property' => ['sc-domain:example.com', true],
+            'http url' => ['http://example.com', false],
+            'https url' => ['https://example.com', false],
+            'https url with slash' => ['https://example.com/', false],
+            'empty string' => ['', false],
+            'partial match' => ['mysc-domain:example.com', false],
+            'case sensitive' => ['SC-DOMAIN:example.com', false],
+            'domain with sc-domain in name' => ['https://foobarsc-domain.com:8080', false],
+            'domain with sc.domain in name' => ['https://foobarsc.domain:1234', false],
+            'domain starting with sc.domain' => ['https://sc.domain:443', false],
+            'domain with sc-doma.in' => ['https://sc-doma.in:8080', false],
+            'domain property with port' => ['sc-domain:example.com:8080', true],
+            'domain property with subdomain' => ['sc-domain:sub.example.com', true],
+        ];
+    }
 }

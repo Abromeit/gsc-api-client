@@ -12,6 +12,12 @@ use InvalidArgumentException;
 
 class GoogleSearchConsoleClient
 {
+    /**
+     * Prefix for domain properties in Google Search Console.
+     * Example: sc-domain:example.com
+     */
+    private const DOMAIN_PROPERTY_PREFIX = 'sc-domain:';
+
     private SearchConsole $searchConsole;
     private ?string $property = null;
 
@@ -46,7 +52,7 @@ class GoogleSearchConsoleClient
     public function setProperty(string $siteUrl): self
     {
         // Normalize the URL by ensuring it ends with a slash if it's not a domain property
-        if (!str_starts_with($siteUrl, 'sc-domain:') && !str_ends_with($siteUrl, '/')) {
+        if (!str_starts_with($siteUrl, self::DOMAIN_PROPERTY_PREFIX) && !str_ends_with($siteUrl, '/')) {
             $siteUrl .= '/';
         }
 
@@ -89,6 +95,17 @@ class GoogleSearchConsoleClient
     public function hasProperty(): bool
     {
         return $this->property !== null;
+    }
+
+    /**
+     * Check if the given URL represents a domain property.
+     *
+     * @param  string $siteUrl The URL to check
+     * @return bool   True if the URL is a domain property
+     */
+    public function isDomainProperty(string $siteUrl): bool
+    {
+        return str_starts_with($siteUrl, self::DOMAIN_PROPERTY_PREFIX);
     }
 
     public function getSearchPerformance(){
