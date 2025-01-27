@@ -40,6 +40,15 @@ try {
         echo "\n";
     }
 
+    // Example: Select the first property for further operations
+    if (isset($properties[0])) {
+        $firstProperty = $properties[0]->getSiteUrl();
+        echo "Selecting property: {$firstProperty}\n";
+
+        $client->setProperty($firstProperty);
+        echo "Current property: " . $client->getProperty() . "\n";
+    }
+
 } catch (Exception $e) {
     die("Error: " . $e->getMessage() . "\n");
 }
