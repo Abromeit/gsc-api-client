@@ -14,7 +14,6 @@ use Google\Service\SearchConsole\SearchAnalyticsRow;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
-use Abromeit\GoogleSearchConsoleClient\Enums\TimeframeResolution;
 use InvalidArgumentException;
 use DateTime;
 use DateTimeInterface;
@@ -518,137 +517,37 @@ class GoogleSearchConsoleClientTest extends TestCase
     {
         $this->setUpValidPropertyAndDates();
 
-        $rows = [
-            $this->createSearchAnalyticsRow('2024-01-01', 100, 1000, 1.5),  // CTR: 0.1, good position
-            $this->createSearchAnalyticsRow('2024-01-01', 50, 200, 4.0),    // CTR: 0.25, poor position
-            $this->createSearchAnalyticsRow('2024-01-02', 300, 500, 1.0),   // CTR: 0.6, excellent position
-        ];
+        // Create mock response
+        $response = new SearchAnalyticsQueryResponse();
+        $response->setRows([
+            $this->createSearchAnalyticsRow('2024-01-01', 10, 100, 1.5),
+            $this->createSearchAnalyticsRow('2024-01-02', 20, 200, 2.5),
+        ]);
 
-        $response = $this->createMock(SearchAnalyticsQueryResponse::class);
-        $response->method('getRows')->willReturn($rows);
-
+        // Configure mock
         $this->searchanalytics->expects($this->once())
             ->method('query')
             ->willReturn($response);
 
-        $result = $this->client->getSearchPerformance(TimeframeResolution::DAILY);
+        // Execute and verify
+        $result = $this->client->getSearchPerformance();
 
+        $this->assertIsArray($result);
         $this->assertCount(2, $result);
 
-        // Check first day aggregation
+        // Verify first row
         $this->assertEquals('2024-01-01', $result[0]['date']);
-        $this->assertEquals(150, $result[0]['clicks']);
-        $this->assertEquals(1200, $result[0]['impressions']);
-        $this->assertEquals(0.125, $result[0]['ctr']);  // (100 + 50) / (1000 + 200)
-        $this->assertEquals(1.917, round($result[0]['position'], 3));  // (1.5*1000 + 4.0*200) / 1200
+        $this->assertEquals(10, $result[0]['clicks']);
+        $this->assertEquals(100, $result[0]['impressions']);
+        $this->assertEquals(0.1, $result[0]['ctr']);
+        $this->assertEquals(1.5, $result[0]['position']);
 
-        // Check second day
+        // Verify second row
         $this->assertEquals('2024-01-02', $result[1]['date']);
-        $this->assertEquals(300, $result[1]['clicks']);
-        $this->assertEquals(500, $result[1]['impressions']);
-        $this->assertEquals(0.6, $result[1]['ctr']);
-        $this->assertEquals(1.0, $result[1]['position']);
-    }
-
-    public function testGetSearchPerformanceWithWeeklyResolution(): void
-    {
-        $this->setUpValidPropertyAndDates();
-
-        $rows = [
-            $this->createSearchAnalyticsRow('2024-01-01', 100, 1000, 1.5),  // Week 1
-            $this->createSearchAnalyticsRow('2024-01-02', 200, 2000, 2.0),  // Week 1
-            $this->createSearchAnalyticsRow('2024-01-08', 300, 3000, 1.0),  // Week 2
-        ];
-
-        $response = $this->createMock(SearchAnalyticsQueryResponse::class);
-        $response->method('getRows')->willReturn($rows);
-
-        $this->searchanalytics->expects($this->once())
-            ->method('query')
-            ->willReturn($response);
-
-        $result = $this->client->getSearchPerformance(TimeframeResolution::WEEKLY);
-
-        $this->assertCount(2, $result);
-
-        // Check first week aggregation
-        $this->assertEquals('2024-CW01', $result[0]['date']);
-        $this->assertEquals(300, $result[0]['clicks']);
-        $this->assertEquals(3000, $result[0]['impressions']);
-        $this->assertEquals(0.1, $result[0]['ctr']);
-        $this->assertEquals(1.833, round($result[0]['position'], 3));
-
-        // Check second week
-        $this->assertEquals('2024-CW02', $result[1]['date']);
-        $this->assertEquals(300, $result[1]['clicks']);
-        $this->assertEquals(3000, $result[1]['impressions']);
+        $this->assertEquals(20, $result[1]['clicks']);
+        $this->assertEquals(200, $result[1]['impressions']);
         $this->assertEquals(0.1, $result[1]['ctr']);
-        $this->assertEquals(1.0, $result[1]['position']);
-    }
-
-    public function testGetSearchPerformanceWithMonthlyResolution(): void
-    {
-        $this->setUpValidPropertyAndDates();
-
-        $rows = [
-            $this->createSearchAnalyticsRow('2024-01-01', 10, 100, 1.5),
-            $this->createSearchAnalyticsRow('2024-01-15', 20, 200, 1.0),
-            $this->createSearchAnalyticsRow('2024-02-01', 30, 300, 2.0),
-        ];
-
-        $response = $this->createMock(SearchAnalyticsQueryResponse::class);
-        $response->method('getRows')->willReturn($rows);
-
-        $this->searchanalytics->expects($this->once())
-            ->method('query')
-            ->willReturn($response);
-
-        $result = $this->client->getSearchPerformance(TimeframeResolution::MONTHLY);
-
-        $this->assertCount(2, $result);
-
-        // Check January aggregation
-        $this->assertEquals('2024-01', $result[0]['date']);
-        $this->assertEquals(30, $result[0]['clicks']);
-        $this->assertEquals(300, $result[0]['impressions']);
-        $this->assertEquals(0.1, $result[0]['ctr']);
-        $this->assertEquals(1.167, round($result[0]['position'], 3));
-
-        // Check February
-        $this->assertEquals('2024-02', $result[1]['date']);
-        $this->assertEquals(30, $result[1]['clicks']);
-        $this->assertEquals(300, $result[1]['impressions']);
-        $this->assertEquals(0.1, $result[1]['ctr']);
-        $this->assertEquals(2.0, $result[1]['position']);
-    }
-
-    public function testGetSearchPerformanceWithAlloverResolution(): void
-    {
-        $this->setUpValidPropertyAndDates();
-
-        $rows = [
-            $this->createSearchAnalyticsRow('2024-01-01', 10, 100, 1.5),
-            $this->createSearchAnalyticsRow('2024-01-15', 20, 200, 1.0),
-            $this->createSearchAnalyticsRow('2024-02-01', 30, 300, 2.0),
-        ];
-
-        $response = $this->createMock(SearchAnalyticsQueryResponse::class);
-        $response->method('getRows')->willReturn($rows);
-
-        $this->searchanalytics->expects($this->once())
-            ->method('query')
-            ->willReturn($response);
-
-        $result = $this->client->getSearchPerformance(TimeframeResolution::ALLOVER);
-
-        $this->assertCount(1, $result);
-
-        // Check total aggregation
-        $this->assertEquals('allover', $result[0]['date']);
-        $this->assertEquals(60, $result[0]['clicks']);
-        $this->assertEquals(600, $result[0]['impressions']);
-        $this->assertEquals(0.1, $result[0]['ctr']);
-        $this->assertEquals(1.583, round($result[0]['position'], 3));
+        $this->assertEquals(2.5, $result[1]['position']);
     }
 
     public function testGetSearchPerformanceKeywords(): void
@@ -656,12 +555,8 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->setUpValidPropertyAndDates();
 
         $rows = [
-            // High CTR keyword with good position
             $this->createSearchAnalyticsRow('2024-01-01', 50, 100, 1.2, ['2024-01-01', 'buy product']),
-            // Low CTR keyword with poor position
             $this->createSearchAnalyticsRow('2024-01-01', 5, 1000, 8.5, ['2024-01-01', 'unrelated term']),
-            // Medium CTR keyword with medium position
-            $this->createSearchAnalyticsRow('2024-01-02', 100, 500, 3.0, ['2024-01-02', 'buy product']),
         ];
 
         $response = $this->createMock(SearchAnalyticsQueryResponse::class);
@@ -675,21 +570,21 @@ class GoogleSearchConsoleClientTest extends TestCase
 
         $this->assertCount(2, $result);
 
-        // Check first day
+        // Check first row
         $this->assertEquals('2024-01-01', $result[0]['date']);
-        $this->assertEquals(55, $result[0]['clicks']);
-        $this->assertEquals(1100, $result[0]['impressions']);
-        $this->assertEquals(0.05, $result[0]['ctr']);
-        $this->assertEquals(7.836, round($result[0]['position'], 3));  // (1.2*100 + 8.5*1000) / 1100
-        $this->assertEquals(['buy product', 'unrelated term'], $result[0]['keys']);
+        $this->assertEquals(50, $result[0]['clicks']);
+        $this->assertEquals(100, $result[0]['impressions']);
+        $this->assertEquals(0.5, $result[0]['ctr']);
+        $this->assertEquals(1.2, $result[0]['position']);
+        $this->assertEquals(['buy product'], $result[0]['keys']);
 
-        // Check second day
-        $this->assertEquals('2024-01-02', $result[1]['date']);
-        $this->assertEquals(100, $result[1]['clicks']);
-        $this->assertEquals(500, $result[1]['impressions']);
-        $this->assertEquals(0.2, $result[1]['ctr']);
-        $this->assertEquals(3.0, $result[1]['position']);
-        $this->assertEquals(['buy product'], $result[1]['keys']);
+        // Check second row
+        $this->assertEquals('2024-01-01', $result[1]['date']);
+        $this->assertEquals(5, $result[1]['clicks']);
+        $this->assertEquals(1000, $result[1]['impressions']);
+        $this->assertEquals(0.005, $result[1]['ctr']);
+        $this->assertEquals(8.5, $result[1]['position']);
+        $this->assertEquals(['unrelated term'], $result[1]['keys']);
     }
 
     public function testGetSearchPerformanceUrls(): void
@@ -697,12 +592,8 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->setUpValidPropertyAndDates();
 
         $rows = [
-            // Homepage with good metrics
             $this->createSearchAnalyticsRow('2024-01-01', 500, 1000, 1.1, ['2024-01-01', '/']),
-            // Product page with medium metrics
             $this->createSearchAnalyticsRow('2024-01-01', 50, 200, 2.5, ['2024-01-01', '/products/123']),
-            // Blog post with poor metrics
-            $this->createSearchAnalyticsRow('2024-01-02', 10, 1000, 15.0, ['2024-01-02', '/blog/post-1']),
         ];
 
         $response = $this->createMock(SearchAnalyticsQueryResponse::class);
@@ -716,21 +607,21 @@ class GoogleSearchConsoleClientTest extends TestCase
 
         $this->assertCount(2, $result);
 
-        // Check first day
+        // Check first row
         $this->assertEquals('2024-01-01', $result[0]['date']);
-        $this->assertEquals(550, $result[0]['clicks']);
-        $this->assertEquals(1200, $result[0]['impressions']);
-        $this->assertEquals(0.458, round($result[0]['ctr'], 3));
-        $this->assertEquals(1.333, round($result[0]['position'], 3));  // (1.1*1000 + 2.5*200) / 1200
-        $this->assertEquals(['/', '/products/123'], $result[0]['keys']);
+        $this->assertEquals(500, $result[0]['clicks']);
+        $this->assertEquals(1000, $result[0]['impressions']);
+        $this->assertEquals(0.5, $result[0]['ctr']);
+        $this->assertEquals(1.1, $result[0]['position']);
+        $this->assertEquals(['/'], $result[0]['keys']);
 
-        // Check second day
-        $this->assertEquals('2024-01-02', $result[1]['date']);
-        $this->assertEquals(10, $result[1]['clicks']);
-        $this->assertEquals(1000, $result[1]['impressions']);
-        $this->assertEquals(0.01, $result[1]['ctr']);
-        $this->assertEquals(15.0, $result[1]['position']);
-        $this->assertEquals(['/blog/post-1'], $result[1]['keys']);
+        // Check second row
+        $this->assertEquals('2024-01-01', $result[1]['date']);
+        $this->assertEquals(50, $result[1]['clicks']);
+        $this->assertEquals(200, $result[1]['impressions']);
+        $this->assertEquals(0.25, $result[1]['ctr']);
+        $this->assertEquals(2.5, $result[1]['position']);
+        $this->assertEquals(['/products/123'], $result[1]['keys']);
     }
 
     public function testExecuteSearchQueryWithEmptyDimensionsThrowsException(): void
@@ -747,28 +638,6 @@ class GoogleSearchConsoleClientTest extends TestCase
         $method = $reflectionClass->getMethod('executeSearchQuery');
         $method->setAccessible(true);
         $method->invoke($this->client, []);
-    }
-
-    public function testGetSearchPerformanceWithNullResolutionDefaultsToDaily(): void
-    {
-        $this->setUpValidPropertyAndDates();
-
-        $rows = [
-            $this->createSearchAnalyticsRow('2024-01-01', 10, 100, 1.5),
-            $this->createSearchAnalyticsRow('2024-01-02', 20, 200, 1.0),
-        ];
-
-        $response = $this->createMock(SearchAnalyticsQueryResponse::class);
-        $response->method('getRows')->willReturn($rows);
-
-        $this->searchanalytics->expects($this->exactly(2))
-            ->method('query')
-            ->willReturn($response);
-
-        $resultWithNull = $this->client->getSearchPerformance(null);
-        $resultWithDaily = $this->client->getSearchPerformance(TimeframeResolution::DAILY);
-
-        $this->assertEquals($resultWithDaily, $resultWithNull);
     }
 
     public function testExecuteSearchQuerySetsCorrectRequestParameters(): void

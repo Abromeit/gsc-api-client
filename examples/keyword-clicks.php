@@ -5,7 +5,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
-use Abromeit\GoogleSearchConsoleClient\Enums\TimeframeResolution;
 use Google\Client;
 use Google\Service\SearchConsole;
 
@@ -47,9 +46,7 @@ try {
     $client->setDates($startDate, $endDate);
 
     // Get daily click data grouped by keywords
-    $data = $client->getSearchPerformanceKeywords(
-        resolution: TimeframeResolution::DAILY
-    );
+    $data = $client->getSearchPerformanceKeywords();
 
     // Display results
     echo "Daily clicks by keyword over the last 7 days:\n";

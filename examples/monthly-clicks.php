@@ -5,7 +5,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
-use Abromeit\GoogleSearchConsoleClient\Enums\TimeframeResolution;
 use Google\Client;
 use Google\Service\SearchConsole;
 
@@ -39,22 +38,20 @@ try {
     $client->setProperty($firstProperty);
     echo "Selected property: {$firstProperty}\n\n";
 
-    // Calculate date range (16 months back from today)
+    // Calculate date range (last 30 days)
     $endDate = new \DateTime('today');
-    $startDate = (new \DateTime('today'))->sub(new \DateInterval('P17M')); // Usually there are '16 Months + 2 Weeks' of data available, or something in that range.
+    $startDate = (new \DateTime('today'))->sub(new \DateInterval('P30D'));
 
     // Set the date range
     $client->setDates($startDate, $endDate);
 
-    // Get monthly click data
-    $data = $client->getSearchPerformance(
-        resolution: TimeframeResolution::MONTHLY
-    );
+    // Get daily click data
+    $data = $client->getSearchPerformance();
 
     // Display results
-    echo "Monthly clicks over the last 16 months:\n";
+    echo "Daily clicks over the last 30 days:\n";
     echo str_repeat('-', 40) . "\n";
-    echo sprintf("%-10s %10s %15s\n", 'Month', 'Clicks', 'Impressions');
+    echo sprintf("%-10s %10s %15s\n", 'Date', 'Clicks', 'Impressions');
     echo str_repeat('-', 40) . "\n";
 
     foreach ($data as $row) {
