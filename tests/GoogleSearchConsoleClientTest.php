@@ -8,12 +8,17 @@ use Google\Client;
 use Google\Service\SearchConsole;
 use Google\Service\SearchConsole\SitesListResponse;
 use Google\Service\SearchConsole\WmxSite;
+use Google\Service\SearchConsole\SearchAnalyticsQueryRequest;
+use Google\Service\SearchConsole\SearchAnalyticsQueryResponse;
+use Google\Service\SearchConsole\SearchAnalyticsRow;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
+use Abromeit\GoogleSearchConsoleClient\Enums\TimeframeResolution;
 use InvalidArgumentException;
 use DateTime;
 use DateTimeInterface;
+use stdClass;
 
 class GoogleSearchConsoleClientTest extends TestCase
 {
@@ -21,6 +26,7 @@ class GoogleSearchConsoleClientTest extends TestCase
     private MockObject&Client $googleClient;
     private MockObject&SearchConsole $searchConsole;
     private MockObject&SearchConsole\Resource\Sites $sites;
+    private MockObject&SearchConsole\Resource\Searchanalytics $searchanalytics;
     private WmxSite $testSite;
 
     protected function setUp(): void
@@ -30,7 +36,9 @@ class GoogleSearchConsoleClientTest extends TestCase
         // Create nested mocks for SearchConsole service
         $this->searchConsole = $this->createMock(SearchConsole::class);
         $this->sites = $this->createMock(SearchConsole\Resource\Sites::class);
+        $this->searchanalytics = $this->createMock(SearchConsole\Resource\Searchanalytics::class);
         $this->searchConsole->sites = $this->sites;
+        $this->searchConsole->searchanalytics = $this->searchanalytics;
 
         // Create the client with our mocked Google client
         $this->client = new GoogleSearchConsoleClient($this->googleClient);
@@ -467,5 +475,299 @@ class GoogleSearchConsoleClientTest extends TestCase
     public function testHasDatesWithNoDatesSet(): void
     {
         $this->assertFalse($this->client->hasDates());
+    }
+
+    public function testGetSearchPerformanceWithoutPropertyThrowsException(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('No property set. Call setProperty() first.');
+
+        $this->client->getSearchPerformance();
+    }
+
+    public function testGetSearchPerformanceWithoutDatesThrowsException(): void
+    {
+        // Setup mock response for sites
+        $response = new SitesListResponse();
+        $response->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($response);
+
+        $this->client->setProperty('https://example.com/');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('No dates set. Call setDates() first.');
+
+        $this->client->getSearchPerformance();
+    }
+
+    public function testGetSearchPerformanceWithEmptyResponse(): void
+    {
+        // Setup property and dates
+        $this->setUpValidPropertyAndDates();
+
+        // Configure mock response
+        $response = new SearchAnalyticsQueryResponse();
+        $response->setRows([]);
+
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->with(
+                $this->equalTo('https://example.com/'),
+                $this->callback(function ($request) {
+                    return $request instanceof SearchAnalyticsQueryRequest;
+                })
+            )
+            ->willReturn($response);
+
+        // Execute and verify
+        $result = $this->client->getSearchPerformance();
+
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
+    }
+
+    public function testGetSearchPerformanceWithDailyResolution(): void
+    {
+        // Setup property and dates
+        $this->setUpValidPropertyAndDates();
+
+        // Create test data
+        $rows = [
+            $this->createSearchAnalyticsRow('2024-01-01', 100, 1000, 0.5),
+            $this->createSearchAnalyticsRow('2024-01-02', 200, 2000, 1.5),
+        ];
+
+        // Configure mock response
+        $response = new SearchAnalyticsQueryResponse();
+        $response->setRows($rows);
+
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($response);
+
+        // Execute
+        $result = $this->client->getSearchPerformance(resolution: TimeframeResolution::DAILY);
+
+        // Verify
+        $this->assertCount(2, $result);
+
+        $this->assertEquals('2024-01-01', $result[0]['date']);
+        $this->assertEquals(100, $result[0]['clicks']);
+        $this->assertEquals(1000, $result[0]['impressions']);
+        $this->assertEquals(0.1, $result[0]['ctr']);
+        $this->assertEquals(0.5, $result[0]['position']);
+
+        $this->assertEquals('2024-01-02', $result[1]['date']);
+        $this->assertEquals(200, $result[1]['clicks']);
+        $this->assertEquals(2000, $result[1]['impressions']);
+        $this->assertEquals(0.1, $result[1]['ctr']);
+        $this->assertEquals(1.5, $result[1]['position']);
+    }
+
+    public function testGetSearchPerformanceWithWeeklyResolution(): void
+    {
+        // Setup property and dates
+        $this->setUpValidPropertyAndDates();
+
+        // Create test data for same week
+        $rows = [
+            $this->createSearchAnalyticsRow('2024-01-01', 100, 1000, 0.5),
+            $this->createSearchAnalyticsRow('2024-01-02', 200, 2000, 1.5),
+        ];
+
+        // Configure mock response
+        $response = new SearchAnalyticsQueryResponse();
+        $response->setRows($rows);
+
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($response);
+
+        // Execute
+        $result = $this->client->getSearchPerformance(resolution: TimeframeResolution::WEEKLY);
+
+        // Verify
+        $this->assertCount(1, $result);
+        $this->assertEquals('2024-CW01', $result[0]['date']);
+        $this->assertEquals(300, $result[0]['clicks']);
+        $this->assertEquals(3000, $result[0]['impressions']);
+        $this->assertEquals(0.1, $result[0]['ctr']);
+        $this->assertEquals(1.167, round($result[0]['position'], 3)); // Weighted average
+    }
+
+    public function testGetSearchPerformanceWithMonthlyResolution(): void
+    {
+        // Setup property and dates
+        $this->setUpValidPropertyAndDates();
+
+        // Create test data for same month
+        $rows = [
+            $this->createSearchAnalyticsRow('2024-01-01', 100, 1000, 0.5),
+            $this->createSearchAnalyticsRow('2024-01-15', 200, 2000, 1.5),
+            $this->createSearchAnalyticsRow('2024-01-31', 300, 3000, 2.5),
+        ];
+
+        // Configure mock response
+        $response = new SearchAnalyticsQueryResponse();
+        $response->setRows($rows);
+
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($response);
+
+        // Execute
+        $result = $this->client->getSearchPerformance(resolution: TimeframeResolution::MONTHLY);
+
+        // Verify
+        $this->assertCount(1, $result);
+        $this->assertEquals('2024-01', $result[0]['date']);
+        $this->assertEquals(600, $result[0]['clicks']);
+        $this->assertEquals(6000, $result[0]['impressions']);
+        $this->assertEquals(0.1, $result[0]['ctr']);
+        $this->assertEquals(1.833, round($result[0]['position'], 3)); // Weighted average
+    }
+
+    public function testGetSearchPerformanceWithAlloverResolution(): void
+    {
+        // Setup property and dates
+        $this->setUpValidPropertyAndDates();
+
+        // Create test data across different months
+        $rows = [
+            $this->createSearchAnalyticsRow('2024-01-01', 100, 1000, 0.5),
+            $this->createSearchAnalyticsRow('2024-02-15', 200, 2000, 1.5),
+            $this->createSearchAnalyticsRow('2024-03-31', 300, 3000, 2.5),
+        ];
+
+        // Configure mock response
+        $response = new SearchAnalyticsQueryResponse();
+        $response->setRows($rows);
+
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($response);
+
+        // Execute
+        $result = $this->client->getSearchPerformance(resolution: TimeframeResolution::ALLOVER);
+
+        // Verify
+        $this->assertCount(1, $result);
+        $this->assertEquals('allover', $result[0]['date']);
+        $this->assertEquals(600, $result[0]['clicks']);
+        $this->assertEquals(6000, $result[0]['impressions']);
+        $this->assertEquals(0.1, $result[0]['ctr']);
+        $this->assertEquals(1.833, round($result[0]['position'], 3)); // Weighted average
+    }
+
+    public function testGetSearchPerformanceWithKeywordFilter(): void
+    {
+        // Setup property and dates
+        $this->setUpValidPropertyAndDates();
+
+        // Create test data with keywords
+        $rows = [
+            $this->createSearchAnalyticsRow('2024-01-01', 100, 1000, 0.5, ['php']),
+            $this->createSearchAnalyticsRow('2024-01-01', 200, 2000, 1.5, ['javascript']),
+        ];
+
+        // Configure mock response
+        $response = new SearchAnalyticsQueryResponse();
+        $response->setRows($rows);
+
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($response);
+
+        // Execute
+        $result = $this->client->getSearchPerformance(
+            keywords: ['php', 'javascript'],
+            resolution: TimeframeResolution::DAILY
+        );
+
+        // Verify
+        $this->assertCount(1, $result);
+        $this->assertEquals('2024-01-01', $result[0]['date']);
+        $this->assertEquals(300, $result[0]['clicks']);
+        $this->assertEquals(3000, $result[0]['impressions']);
+        $this->assertEquals(0.1, $result[0]['ctr']);
+        $this->assertEquals(1.167, round($result[0]['position'], 3)); // Weighted average
+        $this->assertEquals(['php', 'javascript'], $result[0]['keys']);
+    }
+
+    public function testGetSearchPerformanceWithUrlFilter(): void
+    {
+        // Setup property and dates
+        $this->setUpValidPropertyAndDates();
+
+        // Create test data with URLs
+        $rows = [
+            $this->createSearchAnalyticsRow('2024-01-01', 100, 1000, 0.5, ['https://example.com/page1']),
+            $this->createSearchAnalyticsRow('2024-01-01', 200, 2000, 1.5, ['https://example.com/page2']),
+        ];
+
+        // Configure mock response
+        $response = new SearchAnalyticsQueryResponse();
+        $response->setRows($rows);
+
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($response);
+
+        // Execute
+        $result = $this->client->getSearchPerformance(
+            urls: ['https://example.com/page1', 'https://example.com/page2'],
+            resolution: TimeframeResolution::DAILY
+        );
+
+        // Verify
+        $this->assertCount(1, $result);
+        $this->assertEquals('2024-01-01', $result[0]['date']);
+        $this->assertEquals(300, $result[0]['clicks']);
+        $this->assertEquals(3000, $result[0]['impressions']);
+        $this->assertEquals(0.1, $result[0]['ctr']);
+        $this->assertEquals(1.167, round($result[0]['position'], 3)); // Weighted average
+        $this->assertEquals(['https://example.com/page1', 'https://example.com/page2'], $result[0]['keys']);
+    }
+
+    private function setUpValidPropertyAndDates(): void
+    {
+        // Setup valid property
+        $response = new SitesListResponse();
+        $response->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($response);
+
+        $this->client->setProperty('https://example.com/');
+
+        // Setup valid dates
+        $this->client->setDates(
+            new DateTime('2024-01-01'),
+            new DateTime('2024-12-31')
+        );
+    }
+
+    private function createSearchAnalyticsRow(
+        string $date,
+        int $clicks,
+        int $impressions,
+        float $position,
+        array $keys = []
+    ): MockObject {
+        $row = $this->getMockBuilder(stdClass::class)
+            ->addMethods(['getKeys', 'getClicks', 'getImpressions', 'getPosition', 'getCtr'])
+            ->getMock();
+
+        $row->method('getKeys')->willReturn(array_merge([$date], $keys));
+        $row->method('getClicks')->willReturn($clicks);
+        $row->method('getImpressions')->willReturn($impressions);
+        $row->method('getPosition')->willReturn($position);
+        $row->method('getCtr')->willReturn($impressions > 0 ? $clicks / $impressions : 0);
+
+        return $row;
     }
 }

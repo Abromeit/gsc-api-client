@@ -8,9 +8,17 @@ use Google\Client;
 use Google\Service\SearchConsole;
 use Google\Service\SearchConsole\SitesListResponse;
 use Google\Service\SearchConsole\WmxSite;
+use Google\Service\SearchConsole\SearchAnalyticsQueryRequest;
+use Google\Service\SearchConsole\ApiDimensionFilter;
+use Google\Service\SearchConsole\ApiDimensionFilterGroup;
 use InvalidArgumentException;
 use DateTimeInterface;
 use DateTime;
+use Abromeit\GoogleSearchConsoleClient\Enums\TimeframeResolution;
+use Abromeit\GoogleSearchConsoleClient\Enums\GSCDateFormat;
+use Abromeit\GoogleSearchConsoleClient\Enums\GSCDimension;
+use Abromeit\GoogleSearchConsoleClient\Enums\GSCOperator;
+use Abromeit\GoogleSearchConsoleClient\Enums\GSCMetric;
 
 class GoogleSearchConsoleClient
 {
@@ -33,6 +41,7 @@ class GoogleSearchConsoleClient
         $this->zeroDate = new DateTime('@0');
     }
 
+
     /**
      * Get all properties (websites) the authenticated user has access to.
      *
@@ -45,6 +54,7 @@ class GoogleSearchConsoleClient
 
         return $response->getSiteEntry() ?? [];
     }
+
 
     /**
      * Set the property (website) to work with.
@@ -85,6 +95,7 @@ class GoogleSearchConsoleClient
         return $this;
     }
 
+
     /**
      * Get the currently set property URL.
      *
@@ -95,6 +106,7 @@ class GoogleSearchConsoleClient
         return $this->property;
     }
 
+
     /**
      * Check if a property is currently set.
      *
@@ -104,6 +116,7 @@ class GoogleSearchConsoleClient
     {
         return $this->property !== null;
     }
+
 
     /**
      * Check if the given URL or current property represents a domain property.
@@ -144,6 +157,7 @@ class GoogleSearchConsoleClient
         return $this;
     }
 
+
     /**
      * Set the end date for data retrieval.
      *
@@ -164,6 +178,7 @@ class GoogleSearchConsoleClient
         $this->endDate = $date;
         return $this;
     }
+
 
     /**
      * Set both start and end dates for data retrieval.
@@ -189,6 +204,7 @@ class GoogleSearchConsoleClient
         return $this;
     }
 
+
     /**
      * Clear the start date.
      *
@@ -201,18 +217,19 @@ class GoogleSearchConsoleClient
         return $this;
     }
 
+
     /**
      * Clear the end date.
      *
      * @return self
      */
-
     public function clearEndDate(): self
     {
         $this->endDate = null;
 
         return $this;
     }
+
 
     /**
      * Clear both start and end dates.
@@ -227,6 +244,7 @@ class GoogleSearchConsoleClient
         return $this;
     }
 
+
     /**
      * Get the currently set start date.
      *
@@ -237,6 +255,7 @@ class GoogleSearchConsoleClient
         return $this->startDate;
     }
 
+
     /**
      * Get the currently set end date.
      *
@@ -246,6 +265,7 @@ class GoogleSearchConsoleClient
     {
         return $this->endDate;
     }
+
 
     /**
      * Get both start and end dates.
@@ -271,6 +291,7 @@ class GoogleSearchConsoleClient
         return $this->startDate !== null && $this->startDate > $this->zeroDate;
     }
 
+
     /**
      * Check if an end date is set.
      *
@@ -280,6 +301,7 @@ class GoogleSearchConsoleClient
     {
         return $this->endDate !== null && $this->endDate > $this->zeroDate;
     }
+
 
     /**
      * Check if both start AND end dates are set.
@@ -291,7 +313,159 @@ class GoogleSearchConsoleClient
         return $this->hasStartDate() && $this->hasEndDate();
     }
 
-    public function getSearchPerformance(){
 
+    /**
+     * Get search performance data for the currently set property.
+     *
+     * @param  string[]|null                $keywords     Keywords to filter by (null for no filter)
+     * @param  string[]|null                $urls         URLs to filter by (null for no filter)
+     * @param  TimeframeResolution|null     $resolution   Resolution for aggregating data (null for daily, ALLOVER for total sums)
+     *
+     * @return array<array{
+     *     date: string,
+     *     clicks: int,
+     *     impressions: int,
+     *     ctr: float,
+     *     position: float,
+     *     keys?: array<string>
+     * }> Array of performance data. For ALLOVER resolution, returns a single entry with summed metrics
+     *
+     * @throws InvalidArgumentException If no property is set or dates are not set
+     */
+    public function getSearchPerformance(
+        ?array $keywords = null,
+        ?array $urls = null,
+        ?TimeframeResolution $resolution = null,
+    ): array {
+        if (!$this->hasProperty()) {
+            throw new InvalidArgumentException('No property set. Call setProperty() first.');
+        }
+
+        if (!$this->hasDates()) {
+            throw new InvalidArgumentException('No dates set. Call setDates() first.');
+        }
+
+        $request = new SearchAnalyticsQueryRequest();
+        $request->setStartDate($this->startDate->format(GSCDateFormat::DAILY->value));
+        $request->setEndDate($this->endDate->format(GSCDateFormat::DAILY->value));
+        $request->setDimensions([GSCDimension::DATE->value]);
+
+        // Add filters if specified
+        $filterGroups = [];
+
+        if ($keywords !== null) {
+            $keywordFilters = array_map(function ($keyword) {
+                $filter = new ApiDimensionFilter();
+                $filter->setDimension(GSCDimension::QUERY->value);
+                $filter->setOperator(GSCOperator::EQUALS->value);
+                $filter->setExpression($keyword);
+                return $filter;
+            }, $keywords);
+
+            $keywordGroup = new ApiDimensionFilterGroup();
+            $keywordGroup->setGroupType('or');
+            $keywordGroup->setFilters($keywordFilters);
+            $filterGroups[] = $keywordGroup;
+            $request->setDimensions([GSCDimension::DATE->value, GSCDimension::QUERY->value]);
+        }
+
+        if ($urls !== null) {
+            $urlFilters = array_map(function ($url) {
+                $filter = new ApiDimensionFilter();
+                $filter->setDimension(GSCDimension::PAGE->value);
+                $filter->setOperator(GSCOperator::EQUALS->value);
+                $filter->setExpression($url);
+                return $filter;
+            }, $urls);
+
+            $urlGroup = new ApiDimensionFilterGroup();
+            $urlGroup->setGroupType('or');
+            $urlGroup->setFilters($urlFilters);
+            $filterGroups[] = $urlGroup;
+            $request->setDimensions([GSCDimension::DATE->value, GSCDimension::PAGE->value]);
+        }
+
+        if (!empty($filterGroups)) {
+            $request->setDimensionFilterGroups($filterGroups);
+        }
+
+        $response = $this->searchConsole->searchanalytics->query($this->property, $request);
+        $rows = $response->getRows() ?? [];
+
+        if (empty($rows)) {
+            return [];
+        }
+
+        // Group data by date for non-daily resolutions
+        $groupedData = [];
+        foreach ($rows as $row) {
+            $date = new DateTime($row->getKeys()[0]);
+            $key = $this->getDateKey($date, $resolution ?? TimeframeResolution::DAILY);
+
+            if (!isset($groupedData[$key])) {
+                $groupedData[$key] = [
+                    GSCMetric::DATE->value => $key,
+                    GSCMetric::CLICKS->value => 0,
+                    GSCMetric::IMPRESSIONS->value => 0,
+                    GSCMetric::CTR->value => 0,
+                    GSCMetric::POSITION->value => 0,
+                    GSCMetric::COUNT->value => 0
+                ];
+
+                if (count($row->getKeys()) > 1) {
+                    $groupedData[$key][GSCMetric::KEYS->value] = [];
+                }
+            }
+
+            $groupedData[$key][GSCMetric::CLICKS->value] += $row->getClicks();
+            $groupedData[$key][GSCMetric::IMPRESSIONS->value] += $row->getImpressions();
+            $groupedData[$key][GSCMetric::POSITION->value] += $row->getPosition() * $row->getImpressions(); // Weighted average
+            $groupedData[$key][GSCMetric::COUNT->value]++;
+
+            if (count($row->getKeys()) > 1) {
+                $groupedData[$key][GSCMetric::KEYS->value][] = $row->getKeys()[1];
+            }
+        }
+
+        // Calculate averages and clean up
+        $result = [];
+        foreach ($groupedData as $key => $data) {
+            $result[] = [
+                GSCMetric::DATE->value => $key,
+                GSCMetric::CLICKS->value => (int)$data[GSCMetric::CLICKS->value],
+                GSCMetric::IMPRESSIONS->value => (int)$data[GSCMetric::IMPRESSIONS->value],
+                GSCMetric::CTR->value => $data[GSCMetric::IMPRESSIONS->value] > 0
+                    ? $data[GSCMetric::CLICKS->value] / $data[GSCMetric::IMPRESSIONS->value]
+                    : 0,
+                GSCMetric::POSITION->value => $data[GSCMetric::IMPRESSIONS->value] > 0
+                    ? $data[GSCMetric::POSITION->value] / $data[GSCMetric::IMPRESSIONS->value]
+                    : 0,
+            ];
+
+            if (isset($data[GSCMetric::KEYS->value])) {
+                $result[count($result) - 1][GSCMetric::KEYS->value] = array_unique($data[GSCMetric::KEYS->value]);
+            }
+        }
+
+        return $result;
+    }
+
+
+    /**
+     * Get a date key based on the resolution.
+     *
+     * @param  DateTimeInterface     $date       The date to get the key for
+     * @param  TimeframeResolution   $resolution The resolution to use
+     *
+     * @return string   The date key in Y-m-d format for daily, Y-W for weekly, Y-m for monthly, or 'allover'
+     */
+    private function getDateKey(DateTimeInterface $date, TimeframeResolution $resolution): string
+    {
+        return match($resolution) {
+            TimeframeResolution::DAILY => $date->format(GSCDateFormat::DAILY->value),
+            TimeframeResolution::WEEKLY => $date->format(GSCDateFormat::WEEKLY->value),
+            TimeframeResolution::MONTHLY => $date->format(GSCDateFormat::MONTHLY->value),
+            TimeframeResolution::ALLOVER => GSCDateFormat::ALLOVER->value,
+        };
     }
 }
