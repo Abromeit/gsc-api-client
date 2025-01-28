@@ -51,6 +51,7 @@ class GoogleSearchConsoleClient
      * The property must be accessible by the authenticated user.
      *
      * @param  string $siteUrl Full URL of the property (e.g., 'https://example.com/' or 'sc-domain:example.com')
+     *
      * @return self
      *
      * @throws InvalidArgumentException If property is not accessible
@@ -80,6 +81,7 @@ class GoogleSearchConsoleClient
         }
 
         $this->property = $siteUrl;
+
         return $this;
     }
 
@@ -107,6 +109,7 @@ class GoogleSearchConsoleClient
      * Check if the given URL or current property represents a domain property.
      *
      * @param  string|null $siteUrl The URL to check, or null to check current property (from $this->getProperty())
+     *
      * @return bool        True if the URL is a domain property
      */
     public function isDomainProperty(?string $siteUrl = null): bool
@@ -124,6 +127,7 @@ class GoogleSearchConsoleClient
      * Set the start date for data retrieval.
      *
      * @param  DateTimeInterface $date The start date
+     *
      * @return self
      *
      * @throws InvalidArgumentException If start date is after end date (if set)
@@ -144,6 +148,7 @@ class GoogleSearchConsoleClient
      * Set the end date for data retrieval.
      *
      * @param  DateTimeInterface $date The end date
+     *
      * @return self
      *
      * @throws InvalidArgumentException If end date is before start date (if set)
@@ -165,6 +170,7 @@ class GoogleSearchConsoleClient
      *
      * @param  DateTimeInterface $startDate The start date
      * @param  DateTimeInterface $endDate   The end date
+     *
      * @return self
      *
      * @throws InvalidArgumentException If end date is before start date
@@ -179,6 +185,7 @@ class GoogleSearchConsoleClient
 
         $this->startDate = $startDate;
         $this->endDate = $endDate;
+
         return $this;
     }
 
@@ -190,6 +197,7 @@ class GoogleSearchConsoleClient
     public function clearStartDate(): self
     {
         $this->startDate = null;
+
         return $this;
     }
 
@@ -202,6 +210,7 @@ class GoogleSearchConsoleClient
     public function clearEndDate(): self
     {
         $this->endDate = null;
+
         return $this;
     }
 
@@ -214,6 +223,7 @@ class GoogleSearchConsoleClient
     {
         $this->startDate = null;
         $this->endDate = null;
+
         return $this;
     }
 
