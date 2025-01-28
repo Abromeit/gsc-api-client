@@ -104,14 +104,19 @@ class GoogleSearchConsoleClient
     }
 
     /**
-     * Check if the given URL represents a domain property.
+     * Check if the given URL or current property represents a domain property.
      *
-     * @param  string $siteUrl The URL to check
-     * @return bool   True if the URL is a domain property
+     * @param  string|null $siteUrl The URL to check, or null to check current property (from $this->getProperty())
+     * @return bool        True if the URL is a domain property
      */
-    public function isDomainProperty(string $siteUrl): bool
+    public function isDomainProperty(?string $siteUrl = null): bool
     {
-        return str_starts_with($siteUrl, self::DOMAIN_PROPERTY_PREFIX);
+        $urlToCheck = $siteUrl ?? $this->property;
+        if ($urlToCheck === null) {
+            return false;
+        }
+
+        return str_starts_with($urlToCheck, self::DOMAIN_PROPERTY_PREFIX);
     }
 
 
