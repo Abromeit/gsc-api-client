@@ -24,11 +24,13 @@ class GoogleSearchConsoleClient
     private ?string $property = null;
     private ?DateTimeInterface $startDate = null;
     private ?DateTimeInterface $endDate = null;
+    private readonly DateTimeInterface $zeroDate;
 
     public function __construct(
         private readonly Client $client
     ) {
         $this->searchConsole = new SearchConsole($this->client);
+        $this->zeroDate = new DateTime('@0');
     }
 
     /**
@@ -112,50 +114,6 @@ class GoogleSearchConsoleClient
         return str_starts_with($siteUrl, self::DOMAIN_PROPERTY_PREFIX);
     }
 
-    /**
-     * Set both start and end dates for data retrieval.
-     *
-     * @param  DateTimeInterface $startDate The start date
-     * @param  DateTimeInterface $endDate   The end date
-     * @return self
-     *
-     * @throws InvalidArgumentException If end date is before start date
-     */
-    public function setDates(DateTimeInterface $startDate, DateTimeInterface $endDate): self
-    {
-        if ($endDate < $startDate) {
-            throw new InvalidArgumentException(
-                'End date cannot be before start date.'
-            );
-        }
-
-        $this->startDate = $startDate;
-        $this->endDate = $endDate;
-        return $this;
-    }
-
-    /**
-     * Get both start and end dates.
-     *
-     * @return array{start: ?DateTimeInterface, end: ?DateTimeInterface} Array with start and end dates
-     */
-    public function getDates(): array
-    {
-        return [
-            'start' => $this->startDate,
-            'end' => $this->endDate
-        ];
-    }
-
-    /**
-     * Check if both start and end dates are set.
-     *
-     * @return bool True if both dates are set, false otherwise
-     */
-    public function hasDates(): bool
-    {
-        return $this->startDate !== null && $this->endDate !== null;
-    }
 
     /**
      * Set the start date for data retrieval.
@@ -198,6 +156,63 @@ class GoogleSearchConsoleClient
     }
 
     /**
+     * Set both start and end dates for data retrieval.
+     *
+     * @param  DateTimeInterface $startDate The start date
+     * @param  DateTimeInterface $endDate   The end date
+     * @return self
+     *
+     * @throws InvalidArgumentException If end date is before start date
+     */
+    public function setDates(DateTimeInterface $startDate, DateTimeInterface $endDate): self
+    {
+        if ($endDate < $startDate) {
+            throw new InvalidArgumentException(
+                'End date cannot be before start date.'
+            );
+        }
+
+        $this->startDate = $startDate;
+        $this->endDate = $endDate;
+        return $this;
+    }
+
+    /**
+     * Clear the start date.
+     *
+     * @return self
+     */
+    public function clearStartDate(): self
+    {
+        $this->startDate = null;
+        return $this;
+    }
+
+    /**
+     * Clear the end date.
+     *
+     * @return self
+     */
+
+    public function clearEndDate(): self
+    {
+        $this->endDate = null;
+        return $this;
+    }
+
+    /**
+     * Clear both start and end dates.
+     *
+     * @return self
+     */
+    public function clearDates(): self
+    {
+        $this->startDate = null;
+        $this->endDate = null;
+        return $this;
+    }
+
+    /**
      * Get the currently set start date.
      *
      * @return DateTimeInterface|null The start date or null if none is set
@@ -218,13 +233,27 @@ class GoogleSearchConsoleClient
     }
 
     /**
+     * Get both start and end dates.
+     *
+     * @return array{start: ?DateTimeInterface, end: ?DateTimeInterface} Array with start and end dates
+     */
+    public function getDates(): array
+    {
+        return [
+            'start' => $this->startDate,
+            'end' => $this->endDate
+        ];
+    }
+
+
+    /**
      * Check if a start date is set.
      *
      * @return bool True if a start date is set, false otherwise
      */
     public function hasStartDate(): bool
     {
-        return $this->startDate !== null;
+        return $this->startDate !== null && $this->startDate > $this->zeroDate;
     }
 
     /**
@@ -234,41 +263,17 @@ class GoogleSearchConsoleClient
      */
     public function hasEndDate(): bool
     {
-        return $this->endDate !== null;
+        return $this->endDate !== null && $this->endDate > $this->zeroDate;
     }
 
     /**
-     * Clear the start date.
+     * Check if both start AND end dates are set.
      *
-     * @return self
+     * @return bool True if both dates are set, false otherwise
      */
-    public function clearStartDate(): self
+    public function hasDates(): bool
     {
-        $this->startDate = null;
-        return $this;
-    }
-
-    /**
-     * Clear the end date.
-     *
-     * @return self
-     */
-    public function clearEndDate(): self
-    {
-        $this->endDate = null;
-        return $this;
-    }
-
-    /**
-     * Clear both start and end dates.
-     *
-     * @return self
-     */
-    public function clearDates(): self
-    {
-        $this->startDate = null;
-        $this->endDate = null;
-        return $this;
+        return $this->hasStartDate() && $this->hasEndDate();
     }
 
     public function getSearchPerformance(){
