@@ -21,6 +21,7 @@
 # your custom exclusions go here
 
 composer.lock
+playground.php
 
 # Ignore everything in credentials except .gitkeep
 credentials/*

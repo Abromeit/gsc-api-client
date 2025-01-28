@@ -18,12 +18,12 @@ if (!file_exists($serviceAccountFile)) {
 }
 
 try {
-    // Initialize Google Client with a service account
+    // Initialize Google Client with service account
     $googleClient = new Client();
     $googleClient->setAuthConfig($serviceAccountFile);
     $googleClient->addScope(SearchConsole::WEBMASTERS_READONLY);
 
-    // Init our custom client
+    // Initialize our client
     $client = new GoogleSearchConsoleClient($googleClient);
 
     // Get and display properties
@@ -39,43 +39,49 @@ try {
     $client->setProperty($firstProperty);
     echo "Selected property: {$firstProperty}\n\n";
 
-    // Calculate date range (16 months back from today)
-    $endDate = new \DateTime('today');
-    $startDate = (new \DateTime('today'))->sub(new \DateInterval('P17M')); // Usually there are '16 Months + 2 Weeks' of data available, or something in that range.
+    // Calculate date range (last 7 days)
+    $endDate = new DateTime('today');
+    $startDate = (new DateTime('today'))->sub(new DateInterval('P7D'));
 
     // Set the date range
     $client->setDates($startDate, $endDate);
 
-    // Get monthly click data
-    $data = $client->getSearchPerformance(
-        resolution: TimeframeResolution::MONTHLY
+    // Get daily click data grouped by keywords
+    $data = $client->getSearchPerformanceKeywords(
+        resolution: TimeframeResolution::DAILY
     );
 
     // Display results
-    echo "Monthly clicks over the last 16 months:\n";
-    echo str_repeat('-', 40) . "\n";
-    echo sprintf("%-10s %10s %15s\n", 'Month', 'Clicks', 'Impressions');
-    echo str_repeat('-', 40) . "\n";
+    echo "Daily clicks by keyword over the last 7 days:\n";
+    echo str_repeat('-', 80) . "\n";
+    echo sprintf("%-10s %-30s %10s %15s %10s\n", 'Date', 'Keyword', 'Clicks', 'Impressions', 'CTR (%)');
+    echo str_repeat('-', 80) . "\n";
 
     foreach ($data as $row) {
-        echo sprintf(
-            "%-10s %10d %15d\n",
-            $row['date'],
-            $row['clicks'],
-            $row['impressions']
-        );
+        foreach ($row['keys'] as $keyword) {
+            echo sprintf(
+                "%-10s %-30s %10d %15d %10.1f\n",
+                $row['date'],
+                mb_substr($keyword, 0, 29),
+                $row['clicks'],
+                $row['impressions'],
+                $row['ctr'] * 100
+            );
+        }
     }
 
     // Calculate totals
     $totalClicks = array_sum(array_column($data, 'clicks'));
     $totalImpressions = array_sum(array_column($data, 'impressions'));
+    $avgCtr = $totalImpressions > 0 ? ($totalClicks / $totalImpressions) * 100 : 0;
 
-    echo str_repeat('-', 40) . "\n";
+    echo str_repeat('-', 80) . "\n";
     echo sprintf(
-        "%-10s %10d %15d\n",
+        "%-41s %10d %15d %10.1f\n",
         'TOTAL',
         $totalClicks,
-        $totalImpressions
+        $totalImpressions,
+        $avgCtr
     );
 
 } catch (Exception $e) {

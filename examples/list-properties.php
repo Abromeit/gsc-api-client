@@ -6,6 +6,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
 use Google\Client;
+use Google\Service\SearchConsole;
 
 // Path to your service account JSON file
 $serviceAccountFile = __DIR__ . '/../credentials/service-account.json';
@@ -19,7 +20,7 @@ try {
     // Initialize Google Client with service account
     $googleClient = new Client();
     $googleClient->setAuthConfig($serviceAccountFile);
-    $googleClient->addScope('https://www.googleapis.com/auth/webmasters.readonly');
+    $googleClient->addScope(SearchConsole::WEBMASTERS_READONLY);
 
     // Initialize our client
     $client = new GoogleSearchConsoleClient($googleClient);

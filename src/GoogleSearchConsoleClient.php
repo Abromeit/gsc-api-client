@@ -319,11 +319,87 @@ class GoogleSearchConsoleClient
 
 
     /**
-     * Get search performance data for the currently set property.
+     * Get overall search performance data grouped by day/date.
      *
-     * @param  string[]|null                $keywords     Keywords to filter by (null for no filter)
-     * @param  string[]|null                $urls         URLs to filter by (null for no filter)
-     * @param  TimeframeResolution|null     $resolution   Resolution for aggregating data (null for daily, ALLOVER for total sums)
+     * @param  TimeframeResolution|null $resolution - Resolution for aggregating data (null for daily, TimeframeResolution::ALLOVER for total sums)
+     *
+     * @return array<array{
+     *     date: string,
+     *     clicks: int,
+     *     impressions: int,
+     *     ctr: float,
+     *     position: float
+     * }> Array of performance data. For ALLOVER resolution, returns a single entry with summed metrics
+     *
+     * @throws InvalidArgumentException If no property is set or dates are not set
+     */
+    public function getSearchPerformance(
+        ?TimeframeResolution $resolution = null
+    ): array {
+        return $this->executeSearchQuery(
+            dimensions: [Dimension::DATE],
+            resolution: $resolution
+        );
+    }
+
+
+    /**
+     * Get search performance data grouped by keywords.
+     *
+     * @param  TimeframeResolution|null $resolution - Resolution for aggregating data (null for daily, ALLOVER for total sums)
+     *
+     * @return array<array{
+     *     date: string,
+     *     clicks: int,
+     *     impressions: int,
+     *     ctr: float,
+     *     position: float,
+     *     keys: array<string>
+     * }> Array of performance data grouped by keywords
+     *
+     * @throws InvalidArgumentException If no property is set or dates are not set
+     */
+    public function getSearchPerformanceKeywords(
+        ?TimeframeResolution $resolution = null
+    ): array {
+        return $this->executeSearchQuery(
+            dimensions: [Dimension::DATE, Dimension::QUERY],
+            resolution: $resolution
+        );
+    }
+
+
+    /**
+     * Get search performance data grouped by URLs.
+     *
+     * @param  TimeframeResolution|null $resolution - Resolution for aggregating data (null for daily, ALLOVER for total sums)
+     *
+     * @return array<array{
+     *     date: string,
+     *     clicks: int,
+     *     impressions: int,
+     *     ctr: float,
+     *     position: float,
+     *     keys: array<string>
+     * }> Array of performance data grouped by URLs
+     *
+     * @throws InvalidArgumentException If no property is set or dates are not set
+     */
+    public function getSearchPerformanceUrls(
+        ?TimeframeResolution $resolution = null
+    ): array {
+        return $this->executeSearchQuery(
+            dimensions: [Dimension::DATE, Dimension::PAGE],
+            resolution: $resolution
+        );
+    }
+
+
+    /**
+     * Execute a search analytics query with the given parameters.
+     *
+     * @param  array<Dimension>          $dimensions  - Dimensions to group by
+     * @param  TimeframeResolution|null  $resolution  - Resolution for aggregating data
      *
      * @return array<array{
      *     date: string,
@@ -332,14 +408,13 @@ class GoogleSearchConsoleClient
      *     ctr: float,
      *     position: float,
      *     keys?: array<string>
-     * }> Array of performance data. For ALLOVER resolution, returns a single entry with summed metrics
+     * }> Array of performance data
      *
-     * @throws InvalidArgumentException If no property is set or dates are not set
+     * @throws InvalidArgumentException If no property is set, dates are not set, or dimensions array is empty
      */
-    public function getSearchPerformance(
-        ?array $keywords = null,
-        ?array $urls = null,
-        ?TimeframeResolution $resolution = null,
+    private function executeSearchQuery(
+        array $dimensions,
+        ?TimeframeResolution $resolution = null
     ): array {
         if (!$this->hasProperty()) {
             throw new InvalidArgumentException('No property set. Call setProperty() first.');
@@ -349,56 +424,14 @@ class GoogleSearchConsoleClient
             throw new InvalidArgumentException('No dates set. Call setDates() first.');
         }
 
+        if (empty($dimensions)) {
+            throw new InvalidArgumentException('Dimensions array cannot be empty.');
+        }
+
         $request = new SearchAnalyticsQueryRequest();
         $request->setStartDate($this->startDate->format(DateFormat::DAILY->value));
         $request->setEndDate($this->endDate->format(DateFormat::DAILY->value));
-        $request->setDimensions([Dimension::DATE->value]);
-
-        // Add filters if specified
-        $filterGroups = [];
-
-        if ($keywords !== null) {
-            $keywordFilters = array_map(function ($keyword) {
-                $filter = new ApiDimensionFilter();
-                $filter->setDimension(Dimension::QUERY->value);
-                $filter->setOperator(Operator::EQUALS->value);
-                $filter->setExpression($keyword);
-                return $filter;
-            }, $keywords);
-
-            $keywordGroup = new ApiDimensionFilterGroup();
-            $keywordGroup->setGroupType(GroupType::OR->value);
-            $keywordGroup->setFilters($keywordFilters);
-            $filterGroups[] = $keywordGroup;
-            $request->setDimensions([
-                Dimension::DATE->value,
-                Dimension::QUERY->value
-            ]);
-        }
-
-        if ($urls !== null) {
-            $urlFilters = array_map(function ($url) {
-                $filter = new ApiDimensionFilter();
-                $filter->setDimension(Dimension::PAGE->value);
-                $filter->setOperator(Operator::EQUALS->value);
-                $filter->setExpression($url);
-
-                return $filter;
-            }, $urls);
-
-            $urlGroup = new ApiDimensionFilterGroup();
-            $urlGroup->setGroupType(GroupType::OR->value);
-            $urlGroup->setFilters($urlFilters);
-            $filterGroups[] = $urlGroup;
-            $request->setDimensions([
-                Dimension::DATE->value,
-                Dimension::PAGE->value
-            ]);
-        }
-
-        if (!empty($filterGroups)) {
-            $request->setDimensionFilterGroups($filterGroups);
-        }
+        $request->setDimensions(array_map(fn(Dimension $d) => $d->value, $dimensions));
 
         $response = $this->searchConsole->searchanalytics->query($this->property, $request);
         $rows = $response->getRows() ?? [];
@@ -407,111 +440,132 @@ class GoogleSearchConsoleClient
             return [];
         }
 
-        // Group data by date for non-daily resolutions
-        $groupedData = [];
-        foreach ($rows as $row) {
+        return $this->convertResponseToTimeframe($rows, $resolution);
+    }
 
-            $date = new DateTime($row->getKeys()[0]);
-            $key = $this->getDateKey($date, $resolution ?? TimeframeResolution::DAILY);
+
+    /**
+     * Convert API response rows to the desired timeframe resolution.
+     *
+     * @param  array<\Google\Service\SearchConsole\SearchAnalyticsRow>  $rows       - The API response rows
+     * @param  TimeframeResolution|null                                 $resolution  - The desired time interval to use
+     *
+     * @return array<array{
+     *     date: string,
+     *     clicks: int,
+     *     impressions: int,
+     *     ctr: float,
+     *     position: float,
+     *     keys?: array<string>
+     * }> Converted and aggregated performance data
+     */
+    private function convertResponseToTimeframe(
+        array $rows,
+        ?TimeframeResolution $resolution
+    ): array {
+        $groupedData = $this->groupRowsByTimeframe($rows, $resolution);
+
+        return array_map(function(array $data, string $key) {
+            $clicks = (int)$data[Metric::CLICKS->value];
+            $impressions = (int)$data[Metric::IMPRESSIONS->value];
+
+            $result = [
+                Metric::DATE->value        => $key,
+                Metric::CLICKS->value      => $clicks,
+                Metric::IMPRESSIONS->value => $impressions,
+                Metric::CTR->value         => $impressions > 0 ? $clicks / $impressions : 0.0,
+                Metric::POSITION->value    => $impressions > 0 ? $data[Metric::POSITION->value] / $impressions : 0.0,
+            ];
+
+            if (isset($data[Metric::KEYS->value])) {
+                $result[Metric::KEYS->value] = array_unique($data[Metric::KEYS->value]);
+            }
+
+            return $result;
+        }, $groupedData, array_keys($groupedData));
+    }
+
+
+    /**
+     * Group API response rows by the specified timeframe.
+     *
+     * @param  array                    $rows       - The API response rows
+     * @param  TimeframeResolution|null $resolution - The timeframe resolution to group by
+     *
+     * @return array<string, array{
+     *     date: string,
+     *     clicks: int,
+     *     impressions: int,
+     *     ctr: float,
+     *     position: float,
+     *     count: int,
+     *     keys?: array<string>
+     * }> Grouped performance data
+     */
+    private function groupRowsByTimeframe(
+        array $rows,
+        ?TimeframeResolution $resolution
+    ): array {
+
+        $resolution ??= TimeframeResolution::DAILY;
+        $groupedData = [];
+
+        foreach ($rows as $row) {
+            $keys = $row->getKeys();
+            $date = new DateTime($keys[0]);
+            $key  = self::getDateKey($date, $resolution);
+            $hasMultipleKeys = count($keys) > 1;
 
             if (!isset($groupedData[$key])) {
-                $groupedData[$key] = $this->initializeGroupData($key);
+                $groupedData[$key] = [
+                    Metric::DATE->value        => $key,
+                    Metric::CLICKS->value      => 0,
+                    Metric::IMPRESSIONS->value => 0,
+                    Metric::CTR->value         => 0,
+                    Metric::POSITION->value    => 0,
+                    Metric::COUNT->value       => 0,
+                ];
 
-                if (count($row->getKeys()) > 1) {
+                if( $hasMultipleKeys ){
                     $groupedData[$key][Metric::KEYS->value] = [];
                 }
             }
 
-            $this->aggregateRowData($groupedData[$key], $row);
+            $clicks      = $row->getClicks();
+            $impressions = $row->getImpressions();
+            $position    = $row->getPosition();
 
-            if (count($row->getKeys()) > 1) {
-                $groupedData[$key][Metric::KEYS->value][] = $row->getKeys()[1];
+            $groupedData[$key][Metric::CLICKS->value]      += $clicks;
+            $groupedData[$key][Metric::IMPRESSIONS->value] += $impressions;
+            $groupedData[$key][Metric::POSITION->value]    += $position * $impressions;  // Weighted average for position based on impressions
+            $groupedData[$key][Metric::COUNT->value]       += 1;
+
+            if( $hasMultipleKeys ){
+                $groupedData[$key][Metric::KEYS->value][] = $keys[1];
             }
         }
 
-        // Calculate averages and clean up
-        $result = [];
-        foreach ($groupedData as $key => $data) {
-            $clicks = (int)$data[Metric::CLICKS->value];
-            $impressions = (int)$data[Metric::IMPRESSIONS->value];
-            $weightedPositionSum = $data[Metric::POSITION->value];
-
-            $ctr = $impressions > 0 ? $clicks / $impressions : 0;
-            $avgPosition = $impressions > 0 ? $weightedPositionSum / $impressions : 0;
-
-            $result[] = [
-                Metric::DATE->value        => $key,
-                Metric::CLICKS->value      => $clicks,
-                Metric::IMPRESSIONS->value => $impressions,
-                Metric::CTR->value         => $ctr,
-                Metric::POSITION->value    => $avgPosition,
-            ];
-
-            if (isset($data[Metric::KEYS->value])) {
-                $result[count($result) - 1][Metric::KEYS->value] = array_unique($data[Metric::KEYS->value]);
-            }
-        }
-
-        return $result;
+        return $groupedData;
     }
 
 
     /**
      * Get a date key based on the resolution.
      *
-     * @param  DateTimeInterface     $date       The date to get the key for
-     * @param  TimeframeResolution   $resolution The resolution to use
+     * @param  DateTimeInterface     $date       - The date to get the key for
+     * @param  TimeframeResolution   $resolution - The resolution to use
      *
-     * @return string   The date key in Y-m-d format for daily, Y-W for weekly, Y-m for monthly, or 'allover'
+     * @return string  The date key in Y-m-d format for daily, Y-W for weekly, Y-m for monthly, or 'allover'
      */
-    private function getDateKey(DateTimeInterface $date, TimeframeResolution $resolution): string
-    {
+    private static function getDateKey(
+        DateTimeInterface $date,
+        TimeframeResolution $resolution
+    ): string {
         return match($resolution) {
             TimeframeResolution::DAILY   => $date->format(DateFormat::DAILY->value),
             TimeframeResolution::WEEKLY  => $date->format(DateFormat::WEEKLY->value),
             TimeframeResolution::MONTHLY => $date->format(DateFormat::MONTHLY->value),
             TimeframeResolution::ALLOVER => DateFormat::ALLOVER->value,
         };
-    }
-
-
-    /**
-     * Initialize a new group data array with zero values.
-     *
-     * @param  string $key The date key for this group
-     *
-     * @return array<string, mixed> The initialized group data
-     */
-    private function initializeGroupData(string $key): array
-    {
-        return [
-            Metric::DATE->value        => $key,
-            Metric::CLICKS->value      => 0,
-            Metric::IMPRESSIONS->value => 0,
-            Metric::CTR->value         => 0,
-            Metric::POSITION->value    => 0,
-            Metric::COUNT->value       => 0,
-        ];
-    }
-
-
-    /**
-     * Aggregate data from a row into the group data.
-     *
-     * @param  array<string, mixed> $groupData The group data to update
-     * @param  object               $row       The row data to aggregate
-     *
-     * @return void
-     */
-    private function aggregateRowData(array &$groupData, object $row): void
-    {
-        $clicks = $row->getClicks();
-        $impressions = $row->getImpressions();
-        $position = $row->getPosition();
-
-        $groupData[Metric::CLICKS->value]      += $clicks;
-        $groupData[Metric::IMPRESSIONS->value] += $impressions;
-        $groupData[Metric::POSITION->value]    += $position * $impressions;  // Weighted average for position based on impressions
-        $groupData[Metric::COUNT->value]       += 1;
     }
 }

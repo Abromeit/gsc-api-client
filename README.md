@@ -30,13 +30,14 @@ composer require abromeit/gsc-api-client
 ```php
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
 use Google\Client;
+use Google\Service\SearchConsole;
 
 // Initialize with service account
 $googleClient = new Client();
-$googleClient->setAuthConfig('path/to/service-account.json');
-$googleClient->addScope('https://www.googleapis.com/auth/webmasters.readonly');
+$googleClient->setAuthConfig('/path/to/service-account.json');
+$googleClient->addScope(SearchConsole::WEBMASTERS_READONLY);
 
-$client = new GoogleSearchConsoleClient($googleClient);
+$cli = new GoogleSearchConsoleClient($googleClient);
 ```
 
 ### List Available Properties
