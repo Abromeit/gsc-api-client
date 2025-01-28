@@ -45,6 +45,7 @@ class GoogleSearchConsoleClient
 
     /**
      * Get all properties (websites) the authenticated user has access to.
+     * Caution: Sort order returned by API changes with every request.
      *
      * @return WmxSite[] Array of properties
      */
@@ -53,7 +54,9 @@ class GoogleSearchConsoleClient
         /** @var SitesListResponse $response */
         $response = $this->searchConsole->sites->listSites();
 
-        return $response->getSiteEntry() ?? [];
+        $properties = $response->getSiteEntry() ?? [];
+
+        return $properties;
     }
 
 
@@ -407,6 +410,7 @@ class GoogleSearchConsoleClient
         // Group data by date for non-daily resolutions
         $groupedData = [];
         foreach ($rows as $row) {
+
             $date = new DateTime($row->getKeys()[0]);
             $key = $this->getDateKey($date, $resolution ?? TimeframeResolution::DAILY);
 
@@ -501,10 +505,11 @@ class GoogleSearchConsoleClient
      */
     private function aggregateRowData(array &$groupData, object $row): void
     {
+        $clicks = $row->getClicks();
         $impressions = $row->getImpressions();
         $position = $row->getPosition();
 
-        $groupData[Metric::CLICKS->value]      += $row->getClicks();
+        $groupData[Metric::CLICKS->value]      += $clicks;
         $groupData[Metric::IMPRESSIONS->value] += $impressions;
         $groupData[Metric::POSITION->value]    += $position * $impressions;  // Weighted average for position based on impressions
         $groupData[Metric::COUNT->value]       += 1;
