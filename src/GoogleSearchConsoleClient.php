@@ -488,7 +488,9 @@ class GoogleSearchConsoleClient
      * Aggregate data from a row into the group data.
      *
      * @param  array<string, mixed> $groupData The group data to update
-     * @param  object              $row       The row data to aggregate
+     * @param  object               $row       The row data to aggregate
+     *
+     * @return void
      */
     private function aggregateRowData(array &$groupData, object $row): void
     {
