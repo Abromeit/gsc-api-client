@@ -19,6 +19,7 @@ use Abromeit\GoogleSearchConsoleClient\Enums\GSCDateFormat;
 use Abromeit\GoogleSearchConsoleClient\Enums\GSCDimension;
 use Abromeit\GoogleSearchConsoleClient\Enums\GSCOperator;
 use Abromeit\GoogleSearchConsoleClient\Enums\GSCMetric;
+use Abromeit\GoogleSearchConsoleClient\Enums\GSCGroupType;
 
 class GoogleSearchConsoleClient
 {
@@ -363,7 +364,7 @@ class GoogleSearchConsoleClient
             }, $keywords);
 
             $keywordGroup = new ApiDimensionFilterGroup();
-            $keywordGroup->setGroupType('or');
+            $keywordGroup->setGroupType(GSCGroupType::OR->value);
             $keywordGroup->setFilters($keywordFilters);
             $filterGroups[] = $keywordGroup;
             $request->setDimensions([GSCDimension::DATE->value, GSCDimension::QUERY->value]);
@@ -381,7 +382,7 @@ class GoogleSearchConsoleClient
             }, $urls);
 
             $urlGroup = new ApiDimensionFilterGroup();
-            $urlGroup->setGroupType('or');
+            $urlGroup->setGroupType(GSCGroupType::OR->value);
             $urlGroup->setFilters($urlFilters);
             $filterGroups[] = $urlGroup;
             $request->setDimensions([GSCDimension::DATE->value, GSCDimension::PAGE->value]);
