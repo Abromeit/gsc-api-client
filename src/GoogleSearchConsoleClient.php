@@ -276,7 +276,7 @@ class GoogleSearchConsoleClient
     {
         return [
             'start' => $this->startDate,
-            'end' => $this->endDate
+            'end'   => $this->endDate
         ];
     }
 
@@ -371,10 +371,12 @@ class GoogleSearchConsoleClient
 
         if ($urls !== null) {
             $urlFilters = array_map(function ($url) {
+
                 $filter = new ApiDimensionFilter();
                 $filter->setDimension(GSCDimension::PAGE->value);
                 $filter->setOperator(GSCOperator::EQUALS->value);
                 $filter->setExpression($url);
+
                 return $filter;
             }, $urls);
 
@@ -403,24 +405,14 @@ class GoogleSearchConsoleClient
             $key = $this->getDateKey($date, $resolution ?? TimeframeResolution::DAILY);
 
             if (!isset($groupedData[$key])) {
-                $groupedData[$key] = [
-                    GSCMetric::DATE->value => $key,
-                    GSCMetric::CLICKS->value => 0,
-                    GSCMetric::IMPRESSIONS->value => 0,
-                    GSCMetric::CTR->value => 0,
-                    GSCMetric::POSITION->value => 0,
-                    GSCMetric::COUNT->value => 0
-                ];
+                $groupedData[$key] = $this->initializeGroupData($key);
 
                 if (count($row->getKeys()) > 1) {
                     $groupedData[$key][GSCMetric::KEYS->value] = [];
                 }
             }
 
-            $groupedData[$key][GSCMetric::CLICKS->value] += $row->getClicks();
-            $groupedData[$key][GSCMetric::IMPRESSIONS->value] += $row->getImpressions();
-            $groupedData[$key][GSCMetric::POSITION->value] += $row->getPosition() * $row->getImpressions(); // Weighted average
-            $groupedData[$key][GSCMetric::COUNT->value]++;
+            $this->aggregateRowData($groupedData[$key], $row);
 
             if (count($row->getKeys()) > 1) {
                 $groupedData[$key][GSCMetric::KEYS->value][] = $row->getKeys()[1];
@@ -430,16 +422,19 @@ class GoogleSearchConsoleClient
         // Calculate averages and clean up
         $result = [];
         foreach ($groupedData as $key => $data) {
+            $clicks = (int)$data[GSCMetric::CLICKS->value];
+            $impressions = (int)$data[GSCMetric::IMPRESSIONS->value];
+            $weightedPositionSum = $data[GSCMetric::POSITION->value];
+
+            $ctr = $impressions > 0 ? $clicks / $impressions : 0;
+            $avgPosition = $impressions > 0 ? $weightedPositionSum / $impressions : 0;
+
             $result[] = [
-                GSCMetric::DATE->value => $key,
-                GSCMetric::CLICKS->value => (int)$data[GSCMetric::CLICKS->value],
-                GSCMetric::IMPRESSIONS->value => (int)$data[GSCMetric::IMPRESSIONS->value],
-                GSCMetric::CTR->value => $data[GSCMetric::IMPRESSIONS->value] > 0
-                    ? $data[GSCMetric::CLICKS->value] / $data[GSCMetric::IMPRESSIONS->value]
-                    : 0,
-                GSCMetric::POSITION->value => $data[GSCMetric::IMPRESSIONS->value] > 0
-                    ? $data[GSCMetric::POSITION->value] / $data[GSCMetric::IMPRESSIONS->value]
-                    : 0,
+                GSCMetric::DATE->value        => $key,
+                GSCMetric::CLICKS->value      => $clicks,
+                GSCMetric::IMPRESSIONS->value => $impressions,
+                GSCMetric::CTR->value         => $ctr,
+                GSCMetric::POSITION->value    => $avgPosition,
             ];
 
             if (isset($data[GSCMetric::KEYS->value])) {
@@ -462,10 +457,46 @@ class GoogleSearchConsoleClient
     private function getDateKey(DateTimeInterface $date, TimeframeResolution $resolution): string
     {
         return match($resolution) {
-            TimeframeResolution::DAILY => $date->format(GSCDateFormat::DAILY->value),
-            TimeframeResolution::WEEKLY => $date->format(GSCDateFormat::WEEKLY->value),
+            TimeframeResolution::DAILY   => $date->format(GSCDateFormat::DAILY->value),
+            TimeframeResolution::WEEKLY  => $date->format(GSCDateFormat::WEEKLY->value),
             TimeframeResolution::MONTHLY => $date->format(GSCDateFormat::MONTHLY->value),
             TimeframeResolution::ALLOVER => GSCDateFormat::ALLOVER->value,
         };
+    }
+
+    /**
+     * Initialize a new group data array with zero values.
+     *
+     * @param  string $key The date key for this group
+     *
+     * @return array<string, mixed> The initialized group data
+     */
+    private function initializeGroupData(string $key): array
+    {
+        return [
+            GSCMetric::DATE->value        => $key,
+            GSCMetric::CLICKS->value      => 0,
+            GSCMetric::IMPRESSIONS->value => 0,
+            GSCMetric::CTR->value         => 0,
+            GSCMetric::POSITION->value    => 0,
+            GSCMetric::COUNT->value       => 0,
+        ];
+    }
+
+    /**
+     * Aggregate data from a row into the group data.
+     *
+     * @param  array<string, mixed> $groupData The group data to update
+     * @param  object              $row       The row data to aggregate
+     */
+    private function aggregateRowData(array &$groupData, object $row): void
+    {
+        $impressions = $row->getImpressions();
+        $position = $row->getPosition();
+
+        $groupData[GSCMetric::CLICKS->value]      += $row->getClicks();
+        $groupData[GSCMetric::IMPRESSIONS->value] += $impressions;
+        $groupData[GSCMetric::POSITION->value]    += $position * $impressions;  // Use weighted average for position based on impressions
+        $groupData[GSCMetric::COUNT->value]       += 1;
     }
 }
