@@ -9,17 +9,13 @@ use Google\Service\SearchConsole;
 use Google\Service\SearchConsole\SitesListResponse;
 use Google\Service\SearchConsole\WmxSite;
 use Google\Service\SearchConsole\SearchAnalyticsQueryRequest;
-use Google\Service\SearchConsole\ApiDimensionFilter;
-use Google\Service\SearchConsole\ApiDimensionFilterGroup;
 use Google\Service\SearchConsole\SearchAnalyticsQueryResponse;
 use InvalidArgumentException;
 use DateTimeInterface;
 use DateTime;
 use Abromeit\GoogleSearchConsoleClient\Enums\GSCDateFormat as DateFormat;
 use Abromeit\GoogleSearchConsoleClient\Enums\GSCDimension as Dimension;
-use Abromeit\GoogleSearchConsoleClient\Enums\GSCOperator as Operator;
-use Abromeit\GoogleSearchConsoleClient\Enums\GSCMetric as Metric;
-use Abromeit\GoogleSearchConsoleClient\Enums\GSCGroupType as GroupType;
+use Abromeit\GoogleSearchConsoleClient\BatchProcessor;
 
 class GoogleSearchConsoleClient
 {
@@ -29,17 +25,59 @@ class GoogleSearchConsoleClient
      */
     private const DOMAIN_PROPERTY_PREFIX = 'sc-domain:';
 
+    /**
+     * Maximum number of rows that can be retrieved in a single request from GSC API.
+     */
+    private const MAX_ROWS_PER_REQUEST = 25000;
+
+    /**
+     * Default number of keywords to return per request if no limit is specified.
+     */
+    private const DEFAULT_ROWS_PER_REQUEST = 5000;
+
     private SearchConsole $searchConsole;
+
     private ?string $property = null;
     private ?DateTimeInterface $startDate = null;
     private ?DateTimeInterface $endDate = null;
     private readonly DateTimeInterface $zeroDate;
+    private readonly BatchProcessor $batchProcessor;
+    private readonly Client $client;
+
 
     public function __construct(
-        private readonly Client $client
+        Client $client
     ) {
+        $this->client = $client;
+
         $this->searchConsole = new SearchConsole($this->client);
+        $this->batchProcessor = new BatchProcessor($this->client);
         $this->zeroDate = new DateTime('@0');
+    }
+
+
+    /**
+     * Get the current batch size setting.
+     *
+     * @return int Current batch size
+     */
+    public function getBatchSize(): int
+    {
+        return $this->batchProcessor->getBatchSize();
+    }
+
+
+    /**
+     * Set the number of requests to batch together.
+     *
+     * @param  int $batchSize  - Number of requests to batch (1-50)
+     *
+     * @return self
+     */
+    public function setBatchSize(int $batchSize): self
+    {
+        $this->batchProcessor->setBatchSize($batchSize);
+        return $this;
     }
 
 
@@ -103,7 +141,7 @@ class GoogleSearchConsoleClient
     /**
      * Get the currently set property URL.
      *
-     * @return string|null The current property URL or null if none is set
+     * @return string|null  - The current property URL or null if none is set
      */
     public function getProperty(): ?string
     {
@@ -114,7 +152,7 @@ class GoogleSearchConsoleClient
     /**
      * Check if a property is currently set.
      *
-     * @return bool True if a property is set, false otherwise
+     * @return bool  - True if a property is set, false otherwise
      */
     public function hasProperty(): bool
     {
@@ -125,9 +163,9 @@ class GoogleSearchConsoleClient
     /**
      * Check if the given URL or current property represents a domain property.
      *
-     * @param  string|null $siteUrl The URL to check, or null to check current property (from $this->getProperty())
+     * @param  string|null $siteUrl  - The URL to check, or null to check current property (from $this->getProperty())
      *
-     * @return bool        True if the URL is a domain property
+     * @return bool        - True if the URL is a domain property
      */
     public function isDomainProperty(?string $siteUrl = null): bool
     {
@@ -158,6 +196,7 @@ class GoogleSearchConsoleClient
         }
 
         $this->startDate = $date;
+
         return $this;
     }
 
@@ -180,6 +219,7 @@ class GoogleSearchConsoleClient
         }
 
         $this->endDate = $date;
+
         return $this;
     }
 
@@ -319,157 +359,200 @@ class GoogleSearchConsoleClient
 
 
     /**
-     * Execute a search analytics query with the given parameters.
+     * Get the top keywords by day from Google Search Console.
      *
-     * @param  array<Dimension>  $dimensions  - Dimensions to group by
+     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 25000.
+     *                                    Null for default of 5000.
      *
      * @return array<array{
-     *     date: string,
-     *     clicks: int,
+     *     data_date: string,
+     *     site_url: string,
+     *     query: string,
      *     impressions: int,
-     *     ctr: float,
-     *     position: float,
-     *     keys?: array<string>
-     * }> Array of performance data
+     *     clicks: int,
+     *     sum_top_position: float
+     * }> Array of daily performance data for top keywords
      *
-     * @throws InvalidArgumentException If no property is set, dates are not set, or dimensions array is empty
+     * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
      */
-    private function executeSearchQuery(array $dimensions): array
+    public function getTopKeywordsByDay(?int $maxRowsPerDay = null): array
     {
+        // Define how our request should look like
+        $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
+            $request = $this->getNewSearchAnalyticsQueryRequest(
+                dimensions: [Dimension::DATE, Dimension::QUERY],
+                startDate: $date,
+                endDate: $date,
+                rowLimit: $maxRowsPerDay
+            );
+
+            return $this->batchProcessor->createBatchRequest(
+                $this->property,
+                $request
+            );
+        };
+
+        // Process all dates in batches of 'n'.
+        $results = $this->batchProcessor->processInBatches(
+            $this->getAllDatesInRange(),
+            $newBatchRequest,
+            [$this, 'convertApiResponseKeywordsToArray']
+        );
+
+        // Flatten results array and return
+        return array_merge(...$results);
+    }
+
+
+    /**
+     * Normalize the row limit to be within valid bounds.
+     * Uses default if null, caps at max allowed.
+     *
+     * @param  int|null $rowNumbersToReturn  - The requested row limit or null for default
+     *
+     * @return int      - The normalized row limit
+     */
+    private function normalizeRowLimit(?int $rowNumbersToReturn): int
+    {
+        if( $rowNumbersToReturn === null ){
+            $rowNumbersToReturn = self::DEFAULT_ROWS_PER_REQUEST;
+        }
+
+        if ($rowNumbersToReturn <= 0) {
+            return 0;
+        }
+
+        return min($rowNumbersToReturn, self::MAX_ROWS_PER_REQUEST);
+    }
+
+
+    /**
+     * Get an array of dates between start and end date (inclusive).
+     *
+     * @param  DateTimeInterface|null $startDate  - Optional start date, defaults to instance start date
+     * @param  DateTimeInterface|null $endDate    - Optional end date, defaults to instance end date
+     *
+     * @return array<DateTimeInterface>  - Array of dates between start and end date (inclusive)
+     */
+    private function getAllDatesInRange(?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): array
+    {
+        $dates = [];
+        $currentDate = new DateTime(
+            ($startDate ?? $this->startDate)->format(DateFormat::DAILY->value)
+        );
+        $endDate = new DateTime(
+            ($endDate ?? $this->endDate)->format(DateFormat::DAILY->value)
+        );
+
+        while ($currentDate <= $endDate) {
+            $dates[] = clone $currentDate;
+            $currentDate->modify('+1 day');
+        }
+
+        return $dates;
+    }
+
+
+    /**
+     * Create a search analytics query request object with the given or current settings.
+     *
+     * @param  array<Dimension>        $dimensions  - Dimensions to group by (e.g. DATE, QUERY, PAGE)
+     * @param  DateTimeInterface|null  $startDate   - Start date (defaults to instance startDate)
+     * @param  DateTimeInterface|null  $endDate     - End date   (defaults to instance endDate)
+     * @param  int|null                $startRow    - Start row  (optional)
+     * @param  int|null                $rowLimit    - Row limit  (optional)
+     *
+     * @return SearchAnalyticsQueryRequest
+     *
+     * @throws InvalidArgumentException If no dimensions are provided and instance has none
+     */
+    private function getNewSearchAnalyticsQueryRequest(
+        array $dimensions,
+        ?DateTimeInterface $startDate = null,
+        ?DateTimeInterface $endDate = null,
+        ?int $rowLimit = null,
+        ?int $startRow = null,
+    ): SearchAnalyticsQueryRequest {
+
+        if (empty($dimensions) ) {
+            throw new InvalidArgumentException('No dimensions provided.');
+        }
+
+        if (!$this->hasDates() && (
+            ($startDate === null || $startDate <= $this->zeroDate) ||
+            ($endDate === null || $endDate <= $this->zeroDate)
+        )) {
+            throw new InvalidArgumentException('No dates set. Call setDates() first.');
+        }
+
         if (!$this->hasProperty()) {
             throw new InvalidArgumentException('No property set. Call setProperty() first.');
         }
 
-        if (!$this->hasDates()) {
-            throw new InvalidArgumentException('No dates set. Call setDates() first.');
+        $request = new SearchAnalyticsQueryRequest();
+        $request->setDimensions(array_column($dimensions, 'value'));
+        $request->setStartDate(($startDate ?? $this->startDate)->format(DateFormat::DAILY->value));
+        $request->setEndDate(($endDate ?? $this->endDate)->format(DateFormat::DAILY->value));
+
+        if ($rowLimit !== null) {
+            $request->setRowLimit(
+                $this->normalizeRowLimit($rowLimit)
+            );
         }
 
-        if (empty($dimensions)) {
-            throw new InvalidArgumentException('Dimensions array cannot be empty.');
+        if ($startRow !== null) {
+            $request->setStartRow($startRow);
         }
 
-        $response = $this->getNewSearchAnalyticsQueryRequest($dimensions);
-        $rows = $response->getRows() ?? [];
+        return $request;
+    }
+
+
+    /**
+     * Convert API response rows to match the BigQuery searchdata_site_impression schema.
+     *
+     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
+     *
+     * @return array<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     query: string,
+     *     impressions: int,
+     *     clicks: int,
+     *     sum_top_position: float
+     * }> Converted performance data
+     */
+    private function convertApiResponseKeywordsToArray(
+        array|SearchAnalyticsQueryResponse|null $rows
+    ): array
+    {
+        if ($rows instanceof SearchAnalyticsQueryResponse) {
+            $rows = $rows->getRows();
+        }
 
         if (empty($rows)) {
             return [];
         }
 
-        return $this->convertApiResponseToArray($rows);
-    }
-
-
-    /**
-     * Create a search analytics query request object with the current settings.
-     *
-     * @param  array<Dimension>  $dimensions  - Dimensions to group by
-     *
-     * @return SearchAnalyticsQueryResponse
-     */
-    private function getNewSearchAnalyticsQueryRequest(array $dimensions): SearchAnalyticsQueryResponse
-    {
-        $request = new SearchAnalyticsQueryRequest();
-        $request->setStartDate($this->startDate->format(DateFormat::DAILY->value));
-        $request->setEndDate($this->endDate->format(DateFormat::DAILY->value));
-        $request->setDimensions(array_column($dimensions, 'value'));
-
-        return $this->searchConsole->searchanalytics->query($this->property, $request);
-    }
-
-
-    /**
-     * Convert API response rows to an array of performance data.
-     *
-     * @param  array<\Google\Service\SearchConsole\SearchAnalyticsRow>  $rows  - The API response rows
-     *
-     * @return array<array{
-     *     date: string,
-     *     clicks: int,
-     *     impressions: int,
-     *     ctr: float,
-     *     position: float,
-     *     keys?: array<string>
-     * }> Converted performance data
-     */
-    private function convertApiResponseToArray(array $rows): array
-    {
         return array_map(function($row) {
             $keys = $row->getKeys();
             $clicks = (int)$row->getClicks();
             $impressions = (int)$row->getImpressions();
+            $position = $row->getPosition();
 
-            $result = [
-                Metric::DATE->value        => $keys[0],
-                Metric::CLICKS->value      => $clicks,
-                Metric::IMPRESSIONS->value => $impressions,
-                Metric::CTR->value         => $impressions > 0 ? $clicks / $impressions : 0.0,
-                Metric::POSITION->value    => $row->getPosition(),
+            return [
+                'data_date' => $keys[0],
+                'site_url' => $this->property,
+                'query' => $keys[1],
+                // 'is_anonymized_query' => empty($keys[1]),
+                // 'Country' => 'XXX', // Not available in current API response
+                // 'search_type' => 'web', // Default to web search
+                // 'device' => 'DESKTOP', // Not available in current API response
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
             ];
-
-            if (count($keys) > 1) {
-                $result[Metric::KEYS->value] = array_slice($keys, 1);
-            }
-
-            return $result;
         }, $rows);
     }
 
-
-    /**
-     * Get overall search performance data by day.
-     *
-     * @return array<array{
-     *     date: string,
-     *     clicks: int,
-     *     impressions: int,
-     *     ctr: float,
-     *     position: float
-     * }> Array of daily performance data
-     *
-     * @throws InvalidArgumentException If no property is set or dates are not set
-     */
-    public function getSearchPerformance(): array
-    {
-        return $this->executeSearchQuery([Dimension::DATE]);
-    }
-
-
-    /**
-     * Get search performance data grouped by keywords and days.
-     *
-     * @return array<array{
-     *     date: string,
-     *     clicks: int,
-     *     impressions: int,
-     *     ctr: float,
-     *     position: float,
-     *     keys: array<string>
-     * }> Array of daily performance data grouped by keywords
-     *
-     * @throws InvalidArgumentException If no property is set or dates are not set
-     */
-    public function getSearchPerformanceKeywords(): array
-    {
-        return $this->executeSearchQuery([Dimension::DATE, Dimension::QUERY]);
-    }
-
-
-    /**
-     * Get search performance data grouped by URLs and days.
-     *
-     * @return array<array{
-     *     date: string,
-     *     clicks: int,
-     *     impressions: int,
-     *     ctr: float,
-     *     position: float,
-     *     keys: array<string>
-     * }> Array of daily performance data grouped by URLs
-     *
-     * @throws InvalidArgumentException If no property is set or dates are not set
-     */
-    public function getSearchPerformanceUrls(): array
-    {
-        return $this->executeSearchQuery([Dimension::DATE, Dimension::PAGE]);
-    }
 }
