@@ -78,71 +78,101 @@ $client->setDates(
 ### Get Search Performance Data
 
 ```php
-// Get daily performance data
-$dailyData = $client->getSearchPerformance();
+// Get daily performance data with batch processing (up to 25k rows per day)
+$dailyData = $client->getTopKeywordsByDay();
 
-// Get performance data by keywords
-$keywordData = $client->getSearchPerformanceKeywords();
+// Get performance data by URLs (up to 25k rows per day)
+$urlData = $client->getTopUrlsByDay();
 
-// Get performance data by URLs
-$urlData = $client->getSearchPerformanceUrls();
+// Customize the number of rows per day (max 25000)
+$keywordData = $client->getTopKeywordsByDay(5000);
+$urlData = $client->getTopUrlsByDay(5000);
+```
+
+### Configure Batch Processing
+
+```php
+// Get current batch size
+$batchSize = $client->getBatchSize();
+
+// Set number of requests to batch together (1-50)
+$client->setBatchSize(10);
 ```
 
 ### Example: Working with Keyword Data
 
 ```php
-$keywordData = $client->getSearchPerformanceKeywords();
+$keywordData = $client->getTopKeywordsByDay();
 
 foreach ($keywordData as $row) {
-    echo "Date: {$row['date']}\n";
-    echo "Keywords: " . implode(', ', $row['keys']) . "\n";
+    echo "Date: {$row['data_date']}\n";
+    echo "Query: {$row['query']}\n";
     echo "Clicks: {$row['clicks']}\n";
     echo "Impressions: {$row['impressions']}\n";
-    echo "CTR: " . ($row['ctr'] * 100) . "%\n";
-    echo "Position: {$row['position']}\n";
+    echo "Sum Top Position: {$row['sum_top_position']}\n";
 }
 ```
 
 ### Example: Working with URL Data
 
 ```php
-$urlData = $client->getSearchPerformanceUrls();
+$urlData = $client->getTopUrlsByDay();
 
 foreach ($urlData as $row) {
-    echo "Date: {$row['date']}\n";
-    echo "URLs: " . implode(', ', $row['keys']) . "\n";
+    echo "Date: {$row['data_date']}\n";
+    echo "URL: {$row['url']}\n";
     echo "Clicks: {$row['clicks']}\n";
     echo "Impressions: {$row['impressions']}\n";
-    echo "CTR: " . ($row['ctr'] * 100) . "%\n";
-    echo "Position: {$row['position']}\n";
+    echo "Sum Top Position: {$row['sum_top_position']}\n";
 }
 ```
 
 ## Return Values
 
-All performance methods return an array of rows with the following structure:
+The performance methods return arrays matching Google's BigQuery schema:
+
+### Keyword Data Structure
 
 ```php
 [
     [
-        'date' => string,      // Format: YYYY-MM-DD
-        'clicks' => int,       // Total clicks
-        'impressions' => int,  // Total impressions
-        'ctr' => float,        // Click-through rate (0.0 to 1.0)
-        'position' => float,   // Average position
-        'keys' => array        // Keywords/URLs (only for keyword/URL methods)
-    ],
-    [
-        // etc.
+        'data_date' => string,         // Format: YYYY-MM-DD
+        'site_url' => string,          // Property URL
+        'query' => string,             // Search query
+        'impressions' => int,          // Total impressions
+        'clicks' => int,               // Total clicks
+        'sum_top_position' => float    // Sum of positions * impressions
     ],
     // etc.
 ]
 ```
 
+### URL Data Structure
+
+```php
+[
+    [
+        'data_date' => string,         // Format: YYYY-MM-DD
+        'site_url' => string,          // Property URL
+        'url' => string,               // Page URL
+        'impressions' => int,          // Total impressions
+        'clicks' => int,               // Total clicks
+        'sum_top_position' => float    // Sum of positions * impressions
+    ],
+    // etc.
+]
+```
 
 ## Error Handling
 
-The client throws `InvalidArgumentException`
+The client throws `InvalidArgumentException` for:
+- Missing property selection
+- Missing date range
+- Invalid date ranges
+- Invalid batch size (must be between 1 and 50)
+- Row limit exceeding maximum (25000)
+
+Google API errors are passed through as their original exceptions.
 
 
 ## Google's Table Schema
