@@ -51,7 +51,7 @@ class BatchProcessor
     /**
      * Set the number of requests to batch together.
      *
-     * @param  int $batchSize  - Number of requests to batch (1-50)
+     * @param  int $batchSize  - Number of requests to batch (1-1000)
      *
      * @return self
      */

@@ -95,7 +95,7 @@ $urlData = $client->getTopUrlsByDay(5000);
 // Get current batch size
 $batchSize = $client->getBatchSize();
 
-// Set number of requests to batch together (1-50)
+// Set number of requests to batch together (1-1000)
 $client->setBatchSize(10);
 ```
 
