@@ -405,6 +405,52 @@ class GoogleSearchConsoleClient
 
 
     /**
+     * Get the top URLs by day from Google Search Console.
+     *
+     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 25000.
+     *                                    Null for default of 5000.
+     *
+     * @return array<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     url: string,
+     *     impressions: int,
+     *     clicks: int,
+     *     sum_position: float
+     * }> Array of daily performance data for top URLs
+     *
+     * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
+     */
+    public function getTopUrlsByDay(?int $maxRowsPerDay = null): array
+    {
+        // Define how our request should look like
+        $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
+            $request = $this->getNewSearchAnalyticsQueryRequest(
+                dimensions: [Dimension::DATE, Dimension::PAGE],
+                startDate: $date,
+                endDate: $date,
+                rowLimit: $maxRowsPerDay
+            );
+
+            return $this->batchProcessor->createBatchRequest(
+                $this->property,
+                $request
+            );
+        };
+
+        // Process all dates in batches of 'n'.
+        $results = $this->batchProcessor->processInBatches(
+            $this->getAllDatesInRange(),
+            $newBatchRequest,
+            [$this, 'convertApiResponseUrlsToArray']
+        );
+
+        // Flatten results array and return
+        return array_merge(...$results);
+    }
+
+
+    /**
      * Normalize the row limit to be within valid bounds.
      * Uses default if null, caps at max allowed.
      *
@@ -544,6 +590,54 @@ class GoogleSearchConsoleClient
                 'data_date' => $keys[0],
                 'site_url' => $this->property,
                 'query' => $keys[1],
+                // 'is_anonymized_query' => empty($keys[1]),
+                // 'Country' => 'XXX', // Not available in current API response
+                // 'search_type' => 'web', // Default to web search
+                // 'device' => 'DESKTOP', // Not available in current API response
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
+            ];
+        }, $rows);
+    }
+
+
+    /**
+     * Convert API response rows to match the BigQuery searchdata_site_impression schema.
+     *
+     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
+     *
+     * @return array<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     query: string,
+     *     impressions: int,
+     *     clicks: int,
+     *     sum_top_position: float
+     * }> Converted performance data
+     */
+    private function convertApiResponseUrlsToArray(
+        array|SearchAnalyticsQueryResponse|null $rows
+    ): array
+    {
+        if ($rows instanceof SearchAnalyticsQueryResponse) {
+            $rows = $rows->getRows();
+        }
+
+        if (empty($rows)) {
+            return [];
+        }
+
+        return array_map(function($row) {
+            $keys = $row->getKeys();
+            $clicks = (int)$row->getClicks();
+            $impressions = (int)$row->getImpressions();
+            $position = $row->getPosition();
+
+            return [
+                'data_date' => $keys[0],
+                'site_url' => $this->property,
+                'url' => $keys[1],
                 // 'is_anonymized_query' => empty($keys[1]),
                 // 'Country' => 'XXX', // Not available in current API response
                 // 'search_type' => 'web', // Default to web search
