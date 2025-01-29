@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
 use Google\Client;
@@ -29,25 +29,38 @@ try {
     $properties = $client->getProperties();
 
     if (empty($properties)) {
-        echo "No properties found.\n";
+        echo "No properties found. Please make sure the service account has access to some properties.\n";
+        echo "\n";
         exit(0);
     }
 
-    echo "Found " . count($properties) . " properties:\n\n";
+    // Display results
+    echo "Found " . count($properties) . " properties:\n";
+    echo "\n";
+    echo str_repeat('-', 80) . "\n";
+    echo sprintf("%-50s %s\n", 'Property URL', 'Permission Level');
+    echo str_repeat('-', 80) . "\n";
 
     foreach ($properties as $property) {
-        echo "- " . $property->getSiteUrl() . "\n";
-        echo "  Permission Level: " . $property->getPermissionLevel() . "\n";
-        echo "\n";
+        echo sprintf(
+            "%-50s %s\n",
+            strlen($property->getSiteUrl()) > 49 ? mb_substr($property->getSiteUrl(), 0, 46) . '...' : $property->getSiteUrl(),
+            $property->getPermissionLevel()
+        );
     }
+
+    echo str_repeat('-', 80) . "\n";
+    echo "\n";
 
     // Example: Select the first property for further operations
     if (isset($properties[0])) {
+
         $firstProperty = $properties[0]->getSiteUrl();
         echo "Selecting property: {$firstProperty}\n";
 
         $client->setProperty($firstProperty);
         echo "Current property: " . $client->getProperty() . "\n";
+        echo "\n";
     }
 
 } catch (Exception $e) {

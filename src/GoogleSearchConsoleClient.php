@@ -568,7 +568,7 @@ class GoogleSearchConsoleClient
      *     sum_top_position: float
      * }> Converted performance data
      */
-    private function convertApiResponseKeywordsToArray(
+    public function convertApiResponseKeywordsToArray(
         array|SearchAnalyticsQueryResponse|null $rows
     ): array
     {
@@ -616,7 +616,7 @@ class GoogleSearchConsoleClient
      *     sum_top_position: float
      * }> Converted performance data
      */
-    private function convertApiResponseUrlsToArray(
+    public function convertApiResponseUrlsToArray(
         array|SearchAnalyticsQueryResponse|null $rows
     ): array
     {

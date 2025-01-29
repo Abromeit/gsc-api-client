@@ -83,22 +83,22 @@ class BatchProcessor
     /**
      * Process items in batches using the Google API batch functionality.
      *
-     * @param  array<mixed>    $items           - Items to process
-     * @param  callable        $requestBuilder  - Function to build request for each item
-     *                                            Signature: fn($item) => [$request, $requestId]
-     * @param  callable        $responseHandler - Function to handle each response
-     *                                            Signature: fn($response, $requestId) => mixed
-     * @param  callable|null   $errorHandler    - Optional function to handle errors
-     *                                            Signature: fn(\Exception $e, $item) => void
-     *                                            If null, uses default error logging
+     * @param  array<mixed>         $items            - Items to process
+     * @param  callable|array       $requestBuilder   - Function to build request for each item
+     *                                                  Signature: fn($item) => [$request, $requestId]
+     * @param  callable|array       $responseHandler  - Function to handle each response
+     *                                                  Signature: fn($response, $requestId) => mixed
+     * @param  callable|array|null  $errorHandler     - Optional function to handle errors
+     *                                                  Signature: fn(\Exception $e, $item) => void
+     *                                                  If null, uses default error logging
      *
-     * @return array<mixed>    - Array of processed results
+     * @return array<mixed>  - Array of processed results
      */
     public function processInBatches(
         array $items,
-        callable $requestBuilder,
-        callable $responseHandler,
-        ?callable $errorHandler = null
+        callable|array $requestBuilder,
+        callable|array $responseHandler,
+        callable|array|null $errorHandler = null
     ): array {
 
         $results = [];
