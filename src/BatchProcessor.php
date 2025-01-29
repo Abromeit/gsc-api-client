@@ -17,8 +17,10 @@ class BatchProcessor
     /**
      * Maximum number of requests to batch together.
      * This is a Google API limitation.
+     *
+     * See https://developers.google.com/webmaster-tools/v1/how-tos/batch?hl=en#:~:text=You%27re%20limited%20to%201000%20calls%20in%20a%20single%20batch%20request
      */
-    private const MAX_BATCH_SIZE = 50;
+    private const MAX_BATCH_SIZE = 1000;
 
     /**
      * Default number of requests to batch together.
