@@ -18,6 +18,8 @@ use InvalidArgumentException;
 use DateTime;
 use DateTimeInterface;
 use stdClass;
+use ReflectionMethod;
+use Abromeit\GoogleSearchConsoleClient\Enums\GSCDimension as Dimension;
 
 class GoogleSearchConsoleClientTest extends TestCase
 {
@@ -474,6 +476,61 @@ class GoogleSearchConsoleClientTest extends TestCase
     public function testHasDatesWithNoDatesSet(): void
     {
         $this->assertFalse($this->client->hasDates());
+    }
+
+    public function testRowLimitNormalization(): void
+    {
+        // Get access to private method
+        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'normalizeRowLimit');
+        $reflection->setAccessible(true);
+
+        // Test default value
+        $this->assertEquals(5000, $reflection->invoke($this->client, null));
+
+        // Test zero and negative values
+        $this->assertEquals(0, $reflection->invoke($this->client, 0));
+        $this->assertEquals(0, $reflection->invoke($this->client, -1));
+
+        // Test value within bounds
+        $this->assertEquals(10000, $reflection->invoke($this->client, 10000));
+
+        // Test maximum value
+        $this->assertEquals(25000, $reflection->invoke($this->client, 25000));
+
+        // Test value exceeding maximum
+        $this->assertEquals(25000, $reflection->invoke($this->client, 30000));
+    }
+
+    public function testSearchAnalyticsQueryRequestWithMaxRows(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        // Configure mock to return our properties
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Configure test site
+        $this->client->setProperty('https://example.com/');
+        $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
+
+        // Get access to private method
+        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection->setAccessible(true);
+
+        // Create request with maximum rows
+        $request = $reflection->invoke(
+            $this->client,
+            [Dimension::DATE, Dimension::QUERY],
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            25000
+        );
+
+        // Verify row limit is set to maximum
+        $this->assertEquals(25000, $request->getRowLimit());
     }
 }
 

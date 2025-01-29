@@ -27,11 +27,16 @@ class GoogleSearchConsoleClient
 
     /**
      * Maximum number of rows that can be retrieved in a single request from GSC API.
+     * See https://developers.google.com/webmaster-tools/v1/searchanalytics/query#rowLimit
      */
     private const MAX_ROWS_PER_REQUEST = 25000;
 
     /**
      * Default number of keywords to return per request if no limit is specified.
+     *
+     * Here, we take 5000. Which is the max. number of rows returned for a single day in GSC.
+     * Which is annoying, since the official documentation states "a maximum of 50K rows of data per day"
+     * see https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data#data_limits
      */
     private const DEFAULT_ROWS_PER_REQUEST = 5000;
 
@@ -361,7 +366,7 @@ class GoogleSearchConsoleClient
     /**
      * Get the top keywords by day from Google Search Console.
      *
-     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 25000.
+     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.
      *                                    Null for default of 5000.
      *
      * @return array<array{
@@ -407,7 +412,7 @@ class GoogleSearchConsoleClient
     /**
      * Get the top URLs by day from Google Search Console.
      *
-     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 25000.
+     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.
      *                                    Null for default of 5000.
      *
      * @return array<array{
@@ -541,9 +546,9 @@ class GoogleSearchConsoleClient
         $request->setEndDate(($endDate ?? $this->endDate)->format(DateFormat::DAILY->value));
 
         if ($rowLimit !== null) {
-            $request->setRowLimit(
-                $this->normalizeRowLimit($rowLimit)
-            );
+            $rowLimit = $this->normalizeRowLimit($rowLimit);
+            $request->setRowLimit($rowLimit);
+            $request->setStartRow(0);
         }
 
         if ($startRow !== null) {

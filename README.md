@@ -78,13 +78,13 @@ $client->setDates(
 ### Get Search Performance Data
 
 ```php
-// Get daily performance data with batch processing (up to 25k rows per day)
+// Get daily performance data with batch processing (up to 5k rows per day)
 $dailyData = $client->getTopKeywordsByDay();
 
-// Get performance data by URLs (up to 25k rows per day)
+// Get performance data by URLs (up to 5k rows per day)
 $urlData = $client->getTopUrlsByDay();
 
-// Customize the number of rows per day (max 25000)
+// Customize the number of rows per day (max 5000)
 $keywordData = $client->getTopKeywordsByDay(5000);
 $urlData = $client->getTopUrlsByDay(5000);
 ```
@@ -170,7 +170,7 @@ The client throws `InvalidArgumentException` for:
 - Missing date range
 - Invalid date ranges
 - Invalid batch size (must be between 1 and 50)
-- Row limit exceeding maximum (25000)
+- Row limit exceeding maximum (25000 for a single request)
 
 Google API errors are passed through as their original exceptions.
 
