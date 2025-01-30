@@ -6,7 +6,7 @@ A PHP client for the Google Search Console API that makes it easy to retrieve se
 
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Basic Usage](#basic-usage)
+- [Usage Examples](#usage-examples)
   - [Initialize the Client](#initialize-the-client)
   - [List Available Properties](#list-available-properties)
   - [Select a Property](#select-a-property)
@@ -18,6 +18,7 @@ A PHP client for the Google Search Console API that makes it easy to retrieve se
 - [Return Values](#return-values)
   - [Keyword Data Structure](#keyword-data-structure)
   - [URL Data Structure](#url-data-structure)
+- [API Reference](#api-reference)
 - [Performance and Resource Requirements](#performance-and-resource-requirements)
   - [Tested with Large-ish GSC Accounts](#tested-with-large-ish-gsc-accounts)
     - [Memory Usage](#memory-usage)
@@ -29,7 +30,8 @@ A PHP client for the Google Search Console API that makes it easy to retrieve se
 ## Requirements
 
 - PHP 8.2+
-- Google API credentials
+- Credentials for the Google Search Console API
+- A Google Search Console property with some data
 
 ## Installation
 
@@ -44,7 +46,7 @@ composer require abromeit/gsc-api-client
 3. Download the JSON credentials file
 4. Grant access to your Search Console properties to the service account email
 
-## Basic Usage
+## Usage Examples
 
 ### Initialize the Client
 
@@ -119,6 +121,8 @@ See https://developers.google.com/webmaster-tools/v1/how-tos/batch
 $batchSize = $apiClient->getBatchSize();
 
 // Set number of requests to batch together (1-1000)
+// Note that your batch size modification must take place
+// before calling methods like getTopKeywordsByDay(), which trigger API requests.
 $apiClient->setBatchSize(10);
 ```
 
@@ -157,7 +161,7 @@ The performance methods return arrays matching Google's BigQuery schema. (Via ht
 ### Keyword Data Structure
 
 ```php
-[
+/* <Generator> */
     [
         'data_date' => string,         // Format: YYYY-MM-DD
         'site_url' => string,          // Property URL
@@ -167,13 +171,13 @@ The performance methods return arrays matching Google's BigQuery schema. (Via ht
         'sum_top_position' => float    // Sum of positions * impressions
     ],
     // etc.
-]
+/* </Generator> */
 ```
 
 ### URL Data Structure
 
 ```php
-[
+/* <Generator> */
     [
         'data_date' => string,         // Format: YYYY-MM-DD
         'site_url' => string,          // Property URL
@@ -183,8 +187,39 @@ The performance methods return arrays matching Google's BigQuery schema. (Via ht
         'sum_top_position' => float    // Sum of positions * impressions
     ],
     // etc.
-]
+/* </Generator> */
 ```
+
+
+## API Reference
+
+The following table lists all public methods available in the `GoogleSearchConsoleClient` class:
+
+| Method Signature | Return Type | Description |
+|-----------------|-------------|-------------|
+| `__construct(Client $client)` | `void` | Initializes a new GSC API client instance |
+| `getBatchSize()` | `int` | Gets the current batch size setting |
+| `setBatchSize(int $batchSize)` | `self` | Sets number of requests to batch (1-1000, default 10) |
+| `getProperties()` | `WmxSite[]` | Gets all properties the user has access to |
+| `setProperty(string $siteUrl)` | `self` | Sets the property to work with |
+| `getProperty()` | `?string` | Gets the currently set property URL |
+| `hasProperty()` | `bool` | Checks if a property is set |
+| `isDomainProperty([?string $siteUrl = null])` | `bool` | Checks if URL is a domain property |
+| `setStartDate(DateTimeInterface $date)` | `self` | Sets the start date |
+| `setEndDate(DateTimeInterface $date)` | `self` | Sets the end date |
+| `setDates(DateTimeInterface $startDate, DateTimeInterface $endDate)` | `self` | Sets both start and end dates |
+| `clearStartDate()` | `self` | Clears the start date |
+| `clearEndDate()` | `self` | Clears the end date |
+| `clearDates()` | `self` | Clears both dates |
+| `getStartDate()` | `?DateTimeInterface` | Gets the start date |
+| `getEndDate()` | `?DateTimeInterface` | Gets the end date |
+| `getDates()` | `array{start: ?DateTimeInterface, end: ?DateTimeInterface}` | Gets both dates |
+| `hasStartDate()` | `bool` | Checks if start date is set |
+| `hasEndDate()` | `bool` | Checks if end date is set |
+| `hasDates()` | `bool` | Checks if both dates are set |
+| `getTopKeywordsByDay([?int $maxRowsPerDay = null])` | `Generator<array{...}>` | Gets top keywords by day |
+| `getTopUrlsByDay([?int $maxRowsPerDay = null])` | `Generator<array{...}>` | Gets top URLs by day |
+
 
 ## Performance and Resource Requirements
 
