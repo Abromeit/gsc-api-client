@@ -216,9 +216,9 @@ Observed peak memory usage across all batch sizes.
 
 Execution time remained widely consistent across implementations, so here are only the **runtimes for yield-style**:
 
-- **setBatchSize(1)**: ~320 seconds
-- **setBatchSize(10)**: ~215 seconds
-- **setBatchSize(1000)**: ~46 seconds _(45.77 ;)_
+- **setBatchSize(1)**: ~320 seconds (5.3 minutes)
+- **setBatchSize(10)**: ~215 seconds (3.6 minutes)
+- **setBatchSize(1000)**: ~46 seconds _(45.77 sec ;)_
 
 
 
