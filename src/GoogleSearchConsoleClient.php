@@ -369,18 +369,18 @@ class GoogleSearchConsoleClient
      * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.
      *                                    Null for default of 5000.
      *
-     * @return array<array{
+     * @return \Generator<array{
      *     data_date: string,
      *     site_url: string,
      *     query: string,
      *     impressions: int,
      *     clicks: int,
      *     sum_top_position: float
-     * }> Array of daily performance data for top keywords
+     * }> Generator of daily performance data for top keywords
      *
      * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
      */
-    public function getTopKeywordsByDay(?int $maxRowsPerDay = null): array
+    public function getTopKeywordsByDay(?int $maxRowsPerDay = null): \Generator
     {
         // Define how our request should look like
         $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
@@ -404,8 +404,12 @@ class GoogleSearchConsoleClient
             [$this, 'convertApiResponseKeywordsToArray']
         );
 
-        // Flatten results array and return
-        return array_merge(...$results);
+        // Yield results instead of merging
+        foreach ($results as $dayResults) {
+            foreach ($dayResults as $result) {
+                yield $result;
+            }
+        }
     }
 
 
@@ -415,18 +419,18 @@ class GoogleSearchConsoleClient
      * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.
      *                                    Null for default of 5000.
      *
-     * @return array<array{
+     * @return \Generator<array{
      *     data_date: string,
      *     site_url: string,
      *     url: string,
      *     impressions: int,
      *     clicks: int,
      *     sum_position: float
-     * }> Array of daily performance data for top URLs
+     * }> Generator of daily performance data for top URLs
      *
      * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
      */
-    public function getTopUrlsByDay(?int $maxRowsPerDay = null): array
+    public function getTopUrlsByDay(?int $maxRowsPerDay = null): \Generator
     {
         // Define how our request should look like
         $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
@@ -450,8 +454,12 @@ class GoogleSearchConsoleClient
             [$this, 'convertApiResponseUrlsToArray']
         );
 
-        // Flatten results array and return
-        return array_merge(...$results);
+        // Yield results instead of merging
+        foreach ($results as $dayResults) {
+            foreach ($dayResults as $result) {
+                yield $result;
+            }
+        }
     }
 
 

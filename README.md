@@ -2,11 +2,34 @@
 
 A PHP client for the Google Search Console API that makes it easy to retrieve search performance data.
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Basic Usage](#basic-usage)
+  - [Initialize the Client](#initialize-the-client)
+  - [List Available Properties](#list-available-properties)
+  - [Select a Property](#select-a-property)
+  - [Set Date Range](#set-date-range)
+  - [Get Search Performance Data](#get-search-performance-data)
+  - [Configure Batch Processing](#configure-batch-processing)
+  - [Accessing Returned Keyword Data](#accessing-returned-keyword-data)
+  - [Accessing Returned URL Data](#accessing-returned-url-data)
+- [Return Values](#return-values)
+  - [Keyword Data Structure](#keyword-data-structure)
+  - [URL Data Structure](#url-data-structure)
+- [Performance and Resource Requirements](#performance-and-resource-requirements)
+  - [Tested with Large-ish GSC Accounts](#tested-with-large-ish-gsc-accounts)
+    - [Memory Usage](#memory-usage)
+    - [Execution Time](#execution-time)
+- [Google's Table Schema](#googles-table-schema)
+  - [Table `searchdata_site_impression`](#table-searchdata_site_impression)
+  - [Table `searchdata_url_impression`](#table-searchdata_url_impression)
 
 ## Requirements
 
 - PHP 8.2+
-- Google API credentials (Service Account recommended)
+- Google API credentials
 
 ## Installation
 
@@ -15,8 +38,6 @@ Install via Composer:
 ```bash
 composer require abromeit/gsc-api-client
 ```
-
-## Setup
 
 1. Create a Google Cloud Project and enable the Search Console API
 2. Create credentials (Service Account recommended)
@@ -37,13 +58,13 @@ $googleClient = new Client();
 $googleClient->setAuthConfig('/path/to/service-account.json');
 $googleClient->addScope(SearchConsole::WEBMASTERS_READONLY);
 
-$cli = new GoogleSearchConsoleClient($googleClient);
+$apiClient = new GoogleSearchConsoleClient($googleClient);
 ```
 
 ### List Available Properties
 
 ```php
-$properties = $client->getProperties();
+$properties = $apiClient->getProperties();
 foreach ($properties as $property) {
     echo $property->getSiteUrl() . "\n";
     echo "Permission Level: " . $property->getPermissionLevel() . "\n";
@@ -54,22 +75,22 @@ foreach ($properties as $property) {
 
 ```php
 // Using URL
-$client->setProperty('https://example.com/');
+$apiClient->setProperty('https://example.com/');
 
 // Using domain property
-$client->setProperty('sc-domain:example.com');
+$apiClient->setProperty('sc-domain:example.com');
 ```
 
 ### Set Date Range
 
 ```php
 // Last 7 days
-$endDate = new DateTime('today');
 $startDate = (new DateTime('today'))->sub(new DateInterval('P7D'));
-$client->setDates($startDate, $endDate);
+$endDate = new DateTime('today');
+$apiClient->setDates($startDate, $endDate);
 
-// Specific date range
-$client->setDates(
+// Or specific date range
+$apiClient->setDates(
     new DateTime('2024-01-01'),
     new DateTime('2024-01-31')
 );
@@ -78,31 +99,33 @@ $client->setDates(
 ### Get Search Performance Data
 
 ```php
-// Get daily performance data with batch processing (up to 5k rows per day)
-$dailyData = $client->getTopKeywordsByDay();
+// Get daily performance data
+$keywordData = $apiClient->getTopKeywordsByDay();
 
 // Get performance data by URLs (up to 5k rows per day)
-$urlData = $client->getTopUrlsByDay();
+$urlData = $apiClient->getTopUrlsByDay();
 
-// Customize the number of rows per day (max 5000)
-$keywordData = $client->getTopKeywordsByDay(5000);
-$urlData = $client->getTopUrlsByDay(5000);
+// Customize the number of rows per day (default/max: 5000)
+$keywordData = $apiClient->getTopKeywordsByDay(10);
+$urlData = $apiClient->getTopUrlsByDay(10);
 ```
 
 ### Configure Batch Processing
 
+See https://developers.google.com/webmaster-tools/v1/how-tos/batch
+
 ```php
 // Get current batch size
-$batchSize = $client->getBatchSize();
+$batchSize = $apiClient->getBatchSize();
 
 // Set number of requests to batch together (1-1000)
-$client->setBatchSize(10);
+$apiClient->setBatchSize(10);
 ```
 
-### Example: Working with Keyword Data
+### Accessing Returned Keyword Data
 
 ```php
-$keywordData = $client->getTopKeywordsByDay();
+$keywordData = $apiClient->getTopKeywordsByDay();
 
 foreach ($keywordData as $row) {
     echo "Date: {$row['data_date']}\n";
@@ -113,10 +136,10 @@ foreach ($keywordData as $row) {
 }
 ```
 
-### Example: Working with URL Data
+### Accessing Returned URL Data
 
 ```php
-$urlData = $client->getTopUrlsByDay();
+$urlData = $apiClient->getTopUrlsByDay();
 
 foreach ($urlData as $row) {
     echo "Date: {$row['data_date']}\n";
@@ -129,7 +152,7 @@ foreach ($urlData as $row) {
 
 ## Return Values
 
-The performance methods return arrays matching Google's BigQuery schema:
+The performance methods return arrays matching Google's BigQuery schema. (Via https://support.google.com/webmasters/answer/12917991?hl=en )
 
 ### Keyword Data Structure
 
@@ -163,21 +186,47 @@ The performance methods return arrays matching Google's BigQuery schema:
 ]
 ```
 
-## Error Handling
+## Performance and Resource Requirements
 
-The client throws `InvalidArgumentException` for:
-- Missing property selection
-- Missing date range
-- Invalid date ranges
-- Invalid batch size (must be between 1 and 50)
-- Row limit exceeding maximum (25000 for a single request)
+The client has been updated to a yield-style implementation, which offers several advantages above traditional returns:
 
-Google API errors are passed through as their original exceptions.
+- Data is returned sooner, allowing processing of initial entries without waiting for the entire dataset. (Effectively **streaming** the data as it becomes available.)
+- The BatchSize config option now allows us to choose of either speed or minimal memory usage. _(I'd love to say "and any point in between", but in reality even small batch sizes can result in substantial HTTP response sizes. - which unsuprisingly affects the memory footprint our application has.)_
+
+### Tested with Large-ish GSC Accounts
+
+Tests were conducted in a local environment, not on a production server. 
+
+We requested 16 months of daily data using `getTopKeywordsByDay()`. This function, based on the "byProperty" aggregation, returns the top 5k keywords per day. _(I.e. the max. row number was 5k at the time of testing, not 25k or more. This is undocumented behavior of the official API.)_
+
+The result returned 499 days of data in 2,495,000 rows. (One row contains the keyword with impressions, clicks, ctr for a single day.)
+
+#### Memory Usage
+
+Observed peak memory usage across all batch sizes.
+
+- **Array-style**:
+  - Min.: ??? (AFAIR ~500 MB?)
+  - Max.: 1.4 GB
+- **Yield-style**:
+  - Min.: **46 MB (-91%)**
+  - Max.: 738.5 MB (-47%)
+
+#### Execution Time
+
+Execution time remained widely consistent across implementations, so here are only the **runtimes for yield-style**:
+
+- **setBatchSize(1)**: ~320 seconds
+- **setBatchSize(10)**: ~215 seconds
+- **setBatchSize(1000)**: ~46 seconds _(45.77 ;)_
+
 
 
 ## Google's Table Schema
 
-The underlying database at Google contains the following columns:
+It is not always easy to think about GSC data. Therefore, it is great to be able to see how Google itself handles the problem.
+
+If you export your GSC data to BigQuery, you will find the following situation in the tables.
 
 ### Table `searchdata_site_impression`
 

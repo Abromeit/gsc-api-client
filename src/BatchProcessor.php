@@ -94,16 +94,15 @@ class BatchProcessor
      *                                                  Signature: fn(\Exception $e, $item) => void
      *                                                  If null, uses default error logging
      *
-     * @return array<mixed>  - Array of processed results
+     * @return \Generator<mixed>  - Generator of processed results
      */
     public function processInBatches(
         array $items,
         callable|array $requestBuilder,
         callable|array $responseHandler,
         callable|array|null $errorHandler = null
-    ): array {
+    ): \Generator {
 
-        $results = [];
         $errorHandler ??= [$this, 'defaultErrorHandler'];
         $itemChunks = array_chunk($items, $this->batchSize);
 
@@ -129,7 +128,10 @@ class BatchProcessor
                 if (is_array($responses)) {
                     foreach ($responses as $requestId => $response) {
                         if ($response instanceof SearchAnalyticsQueryResponse) {
-                            $results[] = $responseHandler($response, $requestId);
+                            $result = $responseHandler($response, $requestId);
+                            if ($result !== null) {
+                                yield $result;
+                            }
                         }
                     }
                 }
@@ -138,8 +140,6 @@ class BatchProcessor
                 //continue;
             }
         }
-
-        return array_filter($results);
     }
 
 
