@@ -245,16 +245,15 @@ Observed peak memory usage across all batch sizes.
   - Max.: 1.4 GB
 - **Yield-style**:
   - Min.: **46 MB (-91%)**
-  - Max.: 738.5 MB (-47%)
+  - Max.: 608.9 MB (-56%)
 
 #### Execution Time
 
-Execution time remained widely consistent across implementations, so here are only the **runtimes for yield-style**:
+Execution time is slightly reduced in the new yield-style version, but remains in the same ballpark across implementations. Here are the **runtimes for yield-style**:
 
 - **setBatchSize(1)**: ~320 seconds (5.3 minutes)
-- **setBatchSize(10)**: ~215 seconds (3.6 minutes)
-- **setBatchSize(1000)**: ~46 seconds _(45.77 sec ;)_
-
+- **setBatchSize(10)**: ~189 seconds (3.2 minutes)
+- **setBatchSize(1000)**: ~35 seconds (0.6 minutes)
 
 
 ## Google's Table Schema

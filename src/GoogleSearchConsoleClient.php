@@ -572,7 +572,7 @@ class GoogleSearchConsoleClient
      *
      * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
      *
-     * @return array<array{
+     * @return \Generator<array{
      *     data_date: string,
      *     site_url: string,
      *     query: string,
@@ -583,23 +583,23 @@ class GoogleSearchConsoleClient
      */
     public function convertApiResponseKeywordsToArray(
         array|SearchAnalyticsQueryResponse|null $rows
-    ): array
+    ): \Generator
     {
         if ($rows instanceof SearchAnalyticsQueryResponse) {
             $rows = $rows->getRows();
         }
 
         if (empty($rows)) {
-            return [];
+            return;
         }
 
-        return array_map(function($row) {
+        foreach ($rows as $row) {
             $keys = $row->getKeys();
             $clicks = (int)$row->getClicks();
             $impressions = (int)$row->getImpressions();
             $position = $row->getPosition();
 
-            return [
+            yield [
                 'data_date' => $keys[0],
                 'site_url' => $this->property,
                 'query' => $keys[1],
@@ -611,7 +611,7 @@ class GoogleSearchConsoleClient
                 'clicks' => $clicks,
                 'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
             ];
-        }, $rows);
+        }
     }
 
 
@@ -620,10 +620,10 @@ class GoogleSearchConsoleClient
      *
      * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
      *
-     * @return array<array{
+     * @return \Generator<array{
      *     data_date: string,
      *     site_url: string,
-     *     query: string,
+     *     url: string,
      *     impressions: int,
      *     clicks: int,
      *     sum_top_position: float
@@ -631,23 +631,23 @@ class GoogleSearchConsoleClient
      */
     public function convertApiResponseUrlsToArray(
         array|SearchAnalyticsQueryResponse|null $rows
-    ): array
+    ): \Generator
     {
         if ($rows instanceof SearchAnalyticsQueryResponse) {
             $rows = $rows->getRows();
         }
 
         if (empty($rows)) {
-            return [];
+            return;
         }
 
-        return array_map(function($row) {
+        foreach ($rows as $row) {
             $keys = $row->getKeys();
             $clicks = (int)$row->getClicks();
             $impressions = (int)$row->getImpressions();
             $position = $row->getPosition();
 
-            return [
+            yield [
                 'data_date' => $keys[0],
                 'site_url' => $this->property,
                 'url' => $keys[1],
@@ -659,7 +659,7 @@ class GoogleSearchConsoleClient
                 'clicks' => $clicks,
                 'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
             ];
-        }, $rows);
+        }
     }
 
 }
