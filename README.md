@@ -181,6 +181,8 @@ The performance methods return arrays matching Google's BigQuery schema. (Via ht
         'data_date' => string,         // Format: YYYY-MM-DD
         'site_url' => string,          // Property URL
         'query' => string,             // Search query
+        'country' => ?string,          // Optional: ISO-3166-1-Alpha-3 country code
+        'device' => ?string,           // Optional: DESKTOP, MOBILE, or TABLET
         'impressions' => int,          // Total impressions
         'clicks' => int,               // Total clicks
         'sum_top_position' => float    // Sum of positions * impressions
@@ -197,6 +199,8 @@ The performance methods return arrays matching Google's BigQuery schema. (Via ht
         'data_date' => string,         // Format: YYYY-MM-DD
         'site_url' => string,          // Property URL
         'url' => string,               // Page URL
+        'country' => ?string,          // Optional: ISO-3166-1-Alpha-3 country code
+        'device' => ?string,           // Optional: DESKTOP, MOBILE, or TABLET
         'impressions' => int,          // Total impressions
         'clicks' => int,               // Total clicks
         'sum_top_position' => float    // Sum of positions * impressions
@@ -236,6 +240,8 @@ The following table lists all public methods available in the `GoogleSearchConso
 | `getCountry()` | `?string` | Gets the current country |
 | `setDevice([?DeviceType $deviceType=null])` | `self` | Sets device type |
 | `getDevice()` | `?string` | Gets the current device type |
+| `setSearchType([?string $searchType=null])` | `self` | Sets search type (e.g., 'WEB', 'NEWS') |
+| `getSearchType()` | `?string` | Gets the current search type |
 | `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top URLs by day |
