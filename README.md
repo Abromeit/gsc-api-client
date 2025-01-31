@@ -221,7 +221,7 @@ The following table lists all public methods available in the `GoogleSearchConso
 | `setBatchSize(int $batchSize)` | `self` | Sets number of requests to batch (1-1000, default 10) |
 | `getProperties()` | `WmxSite[]` | Gets all properties the user has access to |
 | `setProperty(string $siteUrl)` | `self` | Sets the property to work with |
-| `getProperty()` | `?string` | Gets the currently set property URL |
+| `getProperty()` | `string \| null` | Gets the currently set property URL |
 | `hasProperty()` | `bool` | Checks if a property is set |
 | `isDomainProperty([?string $siteUrl=null])` | `bool` | Checks if URL is a domain property |
 | `setStartDate(DateTimeInterface $date)` | `self` | Sets the start date |
@@ -230,18 +230,18 @@ The following table lists all public methods available in the `GoogleSearchConso
 | `clearStartDate()` | `self` | Clears the start date |
 | `clearEndDate()` | `self` | Clears the end date |
 | `clearDates()` | `self` | Clears both dates |
-| `getStartDate()` | `?DateTimeInterface` | Gets the start date |
-| `getEndDate()` | `?DateTimeInterface` | Gets the end date |
-| `getDates()` | `array{start: ?DateTimeInterface, end: ?DateTimeInterface}` | Gets both dates |
+| `getStartDate()` | `DateTimeInterface \| null` | Gets the start date |
+| `getEndDate()` | `DateTimeInterface \| null` | Gets the end date |
+| `getDates()` | `array{start: DateTimeInterface \| null, end: DateTimeInterface \| null}` | Gets both dates |
 | `hasStartDate()` | `bool` | Checks if start date is set |
 | `hasEndDate()` | `bool` | Checks if end date is set |
 | `hasDates()` | `bool` | Checks if both dates are set |
 | `setCountry([?string $countryCode=null])` | `self` | Sets country using ISO-3166-1-Alpha-3 code |
-| `getCountry()` | `?string` | Gets the current country |
+| `getCountry()` | `string \| null` | Gets the current country |
 | `setDevice([?DeviceType $deviceType=null])` | `self` | Sets device type |
-| `getDevice()` | `?string` | Gets the current device type |
+| `getDevice()` | `string \| null` | Gets the current device type |
 | `setSearchType([?string $searchType=null])` | `self` | Sets search type (e.g., 'WEB', 'NEWS') |
-| `getSearchType()` | `?string` | Gets the current search type |
+| `getSearchType()` | `string \| null` | Gets the current search type |
 | `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top URLs by day |
