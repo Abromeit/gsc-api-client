@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
+use Abromeit\GscApiClient\GscApiClient;
 use Google\Client;
 use Google\Service\SearchConsole;
 
@@ -23,7 +23,7 @@ try {
     $googleClient->addScope(SearchConsole::WEBMASTERS_READONLY);
 
     // Initialize our client
-    $client = new GoogleSearchConsoleClient($googleClient);
+    $client = new GscApiClient($googleClient);
 
     // Get and display properties
     $properties = $client->getProperties();

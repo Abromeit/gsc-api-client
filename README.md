@@ -1,6 +1,6 @@
-# Google Search Console API Client
+# GSC API Client - A PHP Class for Easy-Peasy Data Retrieval from Google Search Console
 
-A PHP client for the Google Search Console API that makes it easy to retrieve search performance data.
+A **PHP client** for the Google Search Console API that makes it easy to import search performance data programmatically into your application.
 
 ## Table of Contents
 
@@ -35,7 +35,9 @@ A PHP client for the Google Search Console API that makes it easy to retrieve se
 
 ## Installation
 
-Install via Composer:
+The GSC API Client is available as Composer package, which is most likely the easiest way to use this library.
+
+To install it via Composer:
 
 ```bash
 composer require abromeit/gsc-api-client
@@ -51,7 +53,7 @@ composer require abromeit/gsc-api-client
 ### Initialize the Client
 
 ```php
-use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
+use Abromeit\GscApiClient\GscApiClient;
 use Google\Client;
 use Google\Service\SearchConsole;
 
@@ -60,7 +62,7 @@ $googleClient = new Client();
 $googleClient->setAuthConfig('/path/to/service-account.json');
 $googleClient->addScope(SearchConsole::WEBMASTERS_READONLY);
 
-$apiClient = new GoogleSearchConsoleClient($googleClient);
+$apiClient = new GscApiClient($googleClient);
 ```
 
 ### List Available Properties
@@ -115,7 +117,7 @@ $urlData = $apiClient->getTopUrlsByDay(10);
 $apiClient->setCountry('USA');
 
 // Filter by device type (DESKTOP, MOBILE, TABLET)
-$apiClient->setDevice(\Abromeit\GoogleSearchConsoleClient\Enums\GSCDeviceType::DESKTOP);
+$apiClient->setDevice(\Abromeit\GscApiClient\Enums\GSCDeviceType::DESKTOP);
 
 // Clear individual filters
 $apiClient->setCountry(null);
@@ -212,7 +214,7 @@ The performance methods return arrays matching Google's BigQuery schema. (Via ht
 
 ## API Reference
 
-The following table lists all public methods available in the `GoogleSearchConsoleClient` class:
+The following table lists all public methods available in the `GscApiClient` class:
 
 | Method Signature | Return Type | Description |
 |-----------------|-------------|-------------|

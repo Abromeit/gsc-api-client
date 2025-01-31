@@ -1,16 +1,16 @@
 {
-    "name": "abromeit/google-search-console-client",
+    "name": "abromeit/gsc-api-client",
     "description": "A simple PHP class for the Google Search Console API (Client)",
     "type": "library",
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Abromeit\\GoogleSearchConsoleClient\\": "src/"
+            "Abromeit\\GscApiClient\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Abromeit\\GoogleSearchConsoleClient\\Tests\\": "tests/"
+            "Abromeit\\GscApiClient\\Tests\\": "tests/"
         }
     },
     "require": {

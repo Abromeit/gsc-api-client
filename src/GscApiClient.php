@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Abromeit\GoogleSearchConsoleClient;
+namespace Abromeit\GscApiClient;
 
 use Google\Client;
 use Google\Service\SearchConsole;
@@ -15,12 +15,12 @@ use Google\Service\SearchConsole\ApiDimensionFilterGroup;
 use InvalidArgumentException;
 use DateTimeInterface;
 use DateTime;
-use Abromeit\GoogleSearchConsoleClient\Enums\GSCDateFormat as DateFormat;
-use Abromeit\GoogleSearchConsoleClient\Enums\GSCDimension as Dimension;
-use Abromeit\GoogleSearchConsoleClient\Enums\GSCDeviceType as DeviceType;
-use Abromeit\GoogleSearchConsoleClient\BatchProcessor;
+use Abromeit\GscApiClient\Enums\GSCDateFormat as DateFormat;
+use Abromeit\GscApiClient\Enums\GSCDimension as Dimension;
+use Abromeit\GscApiClient\Enums\GSCDeviceType as DeviceType;
+use Abromeit\GscApiClient\BatchProcessor;
 
-class GoogleSearchConsoleClient
+class GscApiClient
 {
     /**
      * Prefix for domain properties in Google Search Console.

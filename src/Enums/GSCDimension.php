@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Abromeit\GoogleSearchConsoleClient\Enums;
+namespace Abromeit\GscApiClient\Enums;
 
 enum GSCDimension: string
 {

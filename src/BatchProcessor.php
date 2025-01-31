@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Abromeit\GoogleSearchConsoleClient;
+namespace Abromeit\GscApiClient;
 
 use Google\Client;
 use Google\Service\SearchConsole;

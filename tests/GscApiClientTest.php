@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Abromeit\GoogleSearchConsoleClient\Tests;
+namespace Abromeit\GscApiClient\Tests;
 
 use Google\Client;
 use Google\Service\SearchConsole;
@@ -10,16 +10,16 @@ use Google\Service\SearchConsole\SitesListResponse;
 use Google\Service\SearchConsole\WmxSite;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
-use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
+use Abromeit\GscApiClient\GscApiClient;
 use InvalidArgumentException;
 use DateTime;
 use ReflectionMethod;
-use Abromeit\GoogleSearchConsoleClient\Enums\GSCDimension as Dimension;
-use Abromeit\GoogleSearchConsoleClient\Enums\GSCDeviceType as DeviceType;
+use Abromeit\GscApiClient\Enums\GSCDimension as Dimension;
+use Abromeit\GscApiClient\Enums\GSCDeviceType as DeviceType;
 
-class GoogleSearchConsoleClientTest extends TestCase
+class GscApiClientTest extends TestCase
 {
-    private GoogleSearchConsoleClient $client;
+    private GscApiClient $client;
     private MockObject&Client $googleClient;
     private MockObject&SearchConsole $searchConsole;
     private MockObject&SearchConsole\Resource\Sites $sites;
@@ -38,7 +38,7 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->searchConsole->searchanalytics = $this->searchanalytics;
 
         // Create the client with our mocked Google client
-        $this->client = new GoogleSearchConsoleClient($this->googleClient);
+        $this->client = new GscApiClient($this->googleClient);
 
         // Inject our mocked SearchConsole service
         $reflection = new \ReflectionProperty($this->client, 'searchConsole');
@@ -477,7 +477,7 @@ class GoogleSearchConsoleClientTest extends TestCase
     public function testRowLimitNormalization(): void
     {
         // Get access to private method
-        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'normalizeRowLimit');
+        $reflection = new ReflectionMethod(GscApiClient::class, 'normalizeRowLimit');
         $reflection->setAccessible(true);
 
         // Test default value
@@ -513,7 +513,7 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
 
         // Get access to private method
-        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection = new ReflectionMethod(GscApiClient::class, 'getNewSearchAnalyticsQueryRequest');
         $reflection->setAccessible(true);
 
         // Create request with maximum rows
@@ -620,7 +620,7 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->client->setSearchType('WEB');
 
         // Get access to private method
-        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection = new ReflectionMethod(GscApiClient::class, 'getNewSearchAnalyticsQueryRequest');
         $reflection->setAccessible(true);
 
         // Create request with all filters
@@ -699,7 +699,7 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
 
         // Get access to private method
-        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection = new ReflectionMethod(GscApiClient::class, 'getNewSearchAnalyticsQueryRequest');
         $reflection->setAccessible(true);
 
         // Create request with mixed dimension types (enum and string)
@@ -735,7 +735,7 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
 
         // Get access to private method
-        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection = new ReflectionMethod(GscApiClient::class, 'getNewSearchAnalyticsQueryRequest');
         $reflection->setAccessible(true);
 
         // Test with invalid dimension type
@@ -767,7 +767,7 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
 
         // Get access to private method
-        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection = new ReflectionMethod(GscApiClient::class, 'getNewSearchAnalyticsQueryRequest');
         $reflection->setAccessible(true);
 
         // Create request without any filters
@@ -806,7 +806,7 @@ class GoogleSearchConsoleClientTest extends TestCase
         $this->client->setSearchType('WEB');
 
         // Get access to private method
-        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection = new ReflectionMethod(GscApiClient::class, 'getNewSearchAnalyticsQueryRequest');
         $reflection->setAccessible(true);
 
         // Create request with partial filters
