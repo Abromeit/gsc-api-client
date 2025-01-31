@@ -785,17 +785,14 @@ class GoogleSearchConsoleClient
         if (!empty($filters)) {
             $dimensionFilterGroups = [];
 
-            // Country filter
             if (isset($filters['country'])) {
                 $dimensionFilterGroups[] = $this->getNewApiDimensionFilterGroup('country', $filters['country']);
             }
 
-            // Device filter
             if (isset($filters['device'])) {
                 $dimensionFilterGroups[] = $this->getNewApiDimensionFilterGroup('device', $filters['device']);
             }
 
-            // Search type filter
             if (isset($filters['searchType'])) {
                 $request->setType($filters['searchType']);
             }
