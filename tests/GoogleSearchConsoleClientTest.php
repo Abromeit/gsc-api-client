@@ -8,18 +8,14 @@ use Google\Client;
 use Google\Service\SearchConsole;
 use Google\Service\SearchConsole\SitesListResponse;
 use Google\Service\SearchConsole\WmxSite;
-use Google\Service\SearchConsole\SearchAnalyticsQueryRequest;
-use Google\Service\SearchConsole\SearchAnalyticsQueryResponse;
-use Google\Service\SearchConsole\SearchAnalyticsRow;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
 use Abromeit\GoogleSearchConsoleClient\GoogleSearchConsoleClient;
 use InvalidArgumentException;
 use DateTime;
-use DateTimeInterface;
-use stdClass;
 use ReflectionMethod;
 use Abromeit\GoogleSearchConsoleClient\Enums\GSCDimension as Dimension;
+use Abromeit\GoogleSearchConsoleClient\Enums\GSCDeviceType as DeviceType;
 
 class GoogleSearchConsoleClientTest extends TestCase
 {
@@ -531,6 +527,317 @@ class GoogleSearchConsoleClientTest extends TestCase
 
         // Verify row limit is set to maximum
         $this->assertEquals(25000, $request->getRowLimit());
+    }
+
+    public function testSetCountry(): void
+    {
+        // Test valid country code
+        $result = $this->client->setCountry('USA');
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('USA', $this->client->getCountry());
+
+        // Test case normalization
+        $result = $this->client->setCountry('gbr');
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('GBR', $this->client->getCountry());
+
+        // Test invalid length country code
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Country code must be a valid ISO-3166-1-Alpha-3 code (3 uppercase letters)');
+        $this->client->setCountry('US');
+    }
+
+    public function testClearCountry(): void
+    {
+        // Set and verify country
+        $this->client->setCountry('USA');
+        $this->assertEquals('USA', $this->client->getCountry());
+
+        // Test clearing filter
+        $this->client->setCountry(null);
+        $this->assertNull($this->client->getCountry());
+    }
+
+    public function testSetDevice(): void
+    {
+        // Test setting each device type as enum
+        $result = $this->client->setDevice(DeviceType::DESKTOP);
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('DESKTOP', $this->client->getDevice());
+
+        $result = $this->client->setDevice(DeviceType::MOBILE);
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('MOBILE', $this->client->getDevice());
+
+        $result = $this->client->setDevice(DeviceType::TABLET);
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('TABLET', $this->client->getDevice());
+
+        // Test setting each device type as string
+        $result = $this->client->setDevice('DESKTOP');
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('DESKTOP', $this->client->getDevice());
+
+        $result = $this->client->setDevice('mobile');
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('MOBILE', $this->client->getDevice());
+
+        $result = $this->client->setDevice('TABLET');
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('TABLET', $this->client->getDevice());
+
+        // Test clearing filter
+        $result = $this->client->setDevice(null);
+        $this->assertSame($this->client, $result);
+        $this->assertNull($this->client->getDevice());
+    }
+
+    public function testSetInvalidDevice(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Device type must be one of: DESKTOP, MOBILE, TABLET');
+        $this->client->setDevice('INVALID');
+    }
+
+    public function testSearchAnalyticsQueryRequestWithAllFilters(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        // Configure mock to return our properties
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Configure test site and dates
+        $this->client->setProperty('https://example.com/');
+        $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
+
+        // Set all filters
+        $this->client->setCountry('USA');
+        $this->client->setDevice(DeviceType::DESKTOP);
+        $this->client->setSearchType('WEB');
+
+        // Get access to private method
+        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection->setAccessible(true);
+
+        // Create request with all filters
+        $request = $reflection->invoke(
+            $this->client,
+            [Dimension::DATE, Dimension::QUERY, Dimension::COUNTRY, Dimension::DEVICE],
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            5000
+        );
+
+        // Verify dimensions include country and device
+        $this->assertContains('country', $request->getDimensions());
+        $this->assertContains('device', $request->getDimensions());
+
+        // Verify filter groups are set
+        $filterGroups = $request->getDimensionFilterGroups();
+        $this->assertNotEmpty($filterGroups);
+
+        // Verify country filter
+        $countryFilter = null;
+        $deviceFilter = null;
+        foreach ($filterGroups as $group) {
+            foreach ($group->getFilters() as $filter) {
+                if ($filter->getDimension() === 'country') {
+                    $countryFilter = $filter;
+                } elseif ($filter->getDimension() === 'device') {
+                    $deviceFilter = $filter;
+                }
+            }
+        }
+
+        $this->assertNotNull($countryFilter);
+        $this->assertEquals('USA', $countryFilter->getExpression());
+        $this->assertEquals('equals', $countryFilter->getOperator());
+
+        $this->assertNotNull($deviceFilter);
+        $this->assertEquals('DESKTOP', $deviceFilter->getExpression());
+        $this->assertEquals('equals', $deviceFilter->getOperator());
+
+        // Verify search type is set
+        $this->assertEquals('WEB', $request->getType());
+    }
+
+    public function testSetSearchType(): void
+    {
+        // Test setting search type
+        $result = $this->client->setSearchType('WEB');
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('WEB', $this->client->getSearchType());
+
+        // Test lowercase conversion
+        $result = $this->client->setSearchType('news');
+        $this->assertSame($this->client, $result);
+        $this->assertEquals('NEWS', $this->client->getSearchType());
+
+        // Test clearing search type
+        $result = $this->client->setSearchType(null);
+        $this->assertSame($this->client, $result);
+        $this->assertNull($this->client->getSearchType());
+    }
+
+    public function testSearchAnalyticsQueryRequestWithMixedDimensionTypes(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        // Configure mock to return our properties
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Configure test site and dates
+        $this->client->setProperty('https://example.com/');
+        $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
+
+        // Get access to private method
+        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection->setAccessible(true);
+
+        // Create request with mixed dimension types (enum and string)
+        $request = $reflection->invoke(
+            $this->client,
+            [Dimension::DATE, 'query', Dimension::COUNTRY, 'device'],
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            5000
+        );
+
+        // Verify dimensions are correctly converted to lowercase strings
+        $dimensions = $request->getDimensions();
+        $this->assertContains('date', $dimensions);
+        $this->assertContains('query', $dimensions);
+        $this->assertContains('country', $dimensions);
+        $this->assertContains('device', $dimensions);
+    }
+
+    public function testSearchAnalyticsQueryRequestWithInvalidDimension(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        // Configure mock to return our properties
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Configure test site and dates
+        $this->client->setProperty('https://example.com/');
+        $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
+
+        // Get access to private method
+        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection->setAccessible(true);
+
+        // Test with invalid dimension type
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Dimensions must be either strings or Dimension enum values');
+
+        $reflection->invoke(
+            $this->client,
+            [Dimension::DATE, 123], // Invalid dimension type
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            5000
+        );
+    }
+
+    public function testSearchAnalyticsQueryRequestWithNoFilters(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        // Configure mock to return our properties
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Configure test site and dates
+        $this->client->setProperty('https://example.com/');
+        $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
+
+        // Get access to private method
+        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection->setAccessible(true);
+
+        // Create request without any filters
+        $request = $reflection->invoke(
+            $this->client,
+            [Dimension::DATE, Dimension::QUERY],
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            5000
+        );
+
+        // Verify no filter groups are set
+        $this->assertEmpty($request->getDimensionFilterGroups());
+
+        // Verify no search type is set
+        $this->assertNull($request->getType());
+    }
+
+    public function testSearchAnalyticsQueryRequestWithPartialFilters(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        // Configure mock to return our properties
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Configure test site and dates
+        $this->client->setProperty('https://example.com/');
+        $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
+
+        // Set only country and search type
+        $this->client->setCountry('USA');
+        $this->client->setSearchType('WEB');
+
+        // Get access to private method
+        $reflection = new ReflectionMethod(GoogleSearchConsoleClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection->setAccessible(true);
+
+        // Create request with partial filters
+        $request = $reflection->invoke(
+            $this->client,
+            [Dimension::DATE, Dimension::QUERY, Dimension::COUNTRY],
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            5000
+        );
+
+        // Verify filter groups are set
+        $filterGroups = $request->getDimensionFilterGroups();
+        $this->assertNotEmpty($filterGroups);
+
+        // Verify only country filter exists
+        $countryFilter = null;
+        foreach ($filterGroups as $group) {
+            foreach ($group->getFilters() as $filter) {
+                if ($filter->getDimension() === 'country') {
+                    $countryFilter = $filter;
+                }
+            }
+        }
+
+        $this->assertNotNull($countryFilter);
+        $this->assertEquals('USA', $countryFilter->getExpression());
+        $this->assertEquals('equals', $countryFilter->getOperator());
+
+        // Verify search type is set
+        $this->assertEquals('WEB', $request->getType());
     }
 }
 

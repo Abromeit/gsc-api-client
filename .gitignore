@@ -159,6 +159,9 @@ Sessionx.vim
 
 ##### OTHER ####################################################################
 
+# Ignore all invisible directories
+.*/
+
 ### CMS ###
 .env
 

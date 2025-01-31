@@ -110,6 +110,21 @@ $urlData = $apiClient->getTopUrlsByDay();
 // Customize the number of rows per day (default/max: 5000)
 $keywordData = $apiClient->getTopKeywordsByDay(10);
 $urlData = $apiClient->getTopUrlsByDay(10);
+
+// Filter by country (using ISO-3166-1-Alpha-3 code)
+$apiClient->setCountry('USA');
+
+// Filter by device type (DESKTOP, MOBILE, TABLET)
+$apiClient->setDevice(\Abromeit\GoogleSearchConsoleClient\Enums\GSCDeviceType::DESKTOP);
+
+// Clear individual filters
+$apiClient->setCountry(null);
+$apiClient->setDevice(null);
+$apiClient->setSearchType(null);
+
+// Create custom dimension filters
+$queryFilter = $apiClient->getNewApiDimensionFilterGroup('query', 'foo bar'); // "query = foo bar"
+$queryFilter = $apiClient->getNewApiDimensionFilterGroup('query', 'foo bar', 'contains'); // "query *= foo bar"
 ```
 
 ### Configure Batch Processing
@@ -204,7 +219,7 @@ The following table lists all public methods available in the `GoogleSearchConso
 | `setProperty(string $siteUrl)` | `self` | Sets the property to work with |
 | `getProperty()` | `?string` | Gets the currently set property URL |
 | `hasProperty()` | `bool` | Checks if a property is set |
-| `isDomainProperty([?string $siteUrl = null])` | `bool` | Checks if URL is a domain property |
+| `isDomainProperty([?string $siteUrl=null])` | `bool` | Checks if URL is a domain property |
 | `setStartDate(DateTimeInterface $date)` | `self` | Sets the start date |
 | `setEndDate(DateTimeInterface $date)` | `self` | Sets the end date |
 | `setDates(DateTimeInterface $startDate, DateTimeInterface $endDate)` | `self` | Sets both start and end dates |
@@ -217,9 +232,13 @@ The following table lists all public methods available in the `GoogleSearchConso
 | `hasStartDate()` | `bool` | Checks if start date is set |
 | `hasEndDate()` | `bool` | Checks if end date is set |
 | `hasDates()` | `bool` | Checks if both dates are set |
-| `getTopKeywordsByDay([?int $maxRowsPerDay = null])` | `Generator<array{...}>` | Gets top keywords by day |
-| `getTopUrlsByDay([?int $maxRowsPerDay = null])` | `Generator<array{...}>` | Gets top URLs by day |
-
+| `setCountry([?string $countryCode=null])` | `self` | Sets country using ISO-3166-1-Alpha-3 code |
+| `getCountry()` | `?string` | Gets the current country |
+| `setDevice([?DeviceType $deviceType=null])` | `self` | Sets device type |
+| `getDevice()` | `?string` | Gets the current device type |
+| `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
+| `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top keywords by day |
+| `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top URLs by day |
 
 ## Performance and Resource Requirements
 

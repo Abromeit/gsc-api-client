@@ -10,11 +10,14 @@ use Google\Service\SearchConsole\SitesListResponse;
 use Google\Service\SearchConsole\WmxSite;
 use Google\Service\SearchConsole\SearchAnalyticsQueryRequest;
 use Google\Service\SearchConsole\SearchAnalyticsQueryResponse;
+use Google\Service\SearchConsole\ApiDimensionFilter;
+use Google\Service\SearchConsole\ApiDimensionFilterGroup;
 use InvalidArgumentException;
 use DateTimeInterface;
 use DateTime;
 use Abromeit\GoogleSearchConsoleClient\Enums\GSCDateFormat as DateFormat;
 use Abromeit\GoogleSearchConsoleClient\Enums\GSCDimension as Dimension;
+use Abromeit\GoogleSearchConsoleClient\Enums\GSCDeviceType as DeviceType;
 use Abromeit\GoogleSearchConsoleClient\BatchProcessor;
 
 class GoogleSearchConsoleClient
@@ -49,6 +52,9 @@ class GoogleSearchConsoleClient
     private readonly BatchProcessor $batchProcessor;
     private readonly Client $client;
 
+    private ?string $countryCode = null;
+    private ?string $deviceType = null;
+    private ?string $searchType = null;
 
     public function __construct(
         Client $client
@@ -337,7 +343,7 @@ class GoogleSearchConsoleClient
      */
     public function hasStartDate(): bool
     {
-        return $this->startDate !== null && $this->startDate > $this->zeroDate;
+        return $this->isValidDate($this->startDate);
     }
 
 
@@ -348,7 +354,7 @@ class GoogleSearchConsoleClient
      */
     public function hasEndDate(): bool
     {
-        return $this->endDate !== null && $this->endDate > $this->zeroDate;
+        return $this->isValidDate($this->endDate);
     }
 
 
@@ -364,6 +370,136 @@ class GoogleSearchConsoleClient
 
 
     /**
+     * Check if a date is valid (not null and after Unix epoch).
+     *
+     * @param  DateTimeInterface|null $date  - The date to check
+     *
+     * @return bool  - True if date is valid (not null and after Unix epoch)
+     */
+    private function isValidDate(?DateTimeInterface $date): bool
+    {
+        return $date !== null && $date > $this->zeroDate;
+    }
+
+
+    /**
+     * Set the country using ISO-3166-1-Alpha-3 code.
+     *
+     * @param  string|null $countryCode  - ISO-3166-1-Alpha-3 country code or null to clear
+     *
+     * @return self
+     *
+     * @throws InvalidArgumentException If country code is invalid
+     */
+    public function setCountry(?string $countryCode): self
+    {
+        if ($countryCode === null) {
+            $this->countryCode = null;
+            return $this;
+        }
+
+        if (strlen($countryCode) !== 3) {
+            throw new InvalidArgumentException(
+                'Country code must be a valid ISO-3166-1-Alpha-3 code (3 uppercase letters)'
+            );
+        }
+        $this->countryCode = strtoupper($countryCode);
+
+        return $this;
+    }
+
+
+    /**
+     * Get the currently set country.
+     *
+     * @return string|null  - The current country or null if none is set
+     */
+    public function getCountry(): ?string
+    {
+        return $this->countryCode;
+    }
+
+
+    /**
+     * Set the device type.
+     *
+     * @param  DeviceType|string|null $deviceType  - Device type or null to clear
+     *
+     * @return self
+     *
+     * @throws InvalidArgumentException If device type is invalid
+     */
+    public function setDevice(DeviceType|string|null $deviceType): self
+    {
+        // clear device type
+        if ($deviceType === null) {
+            $this->deviceType = null;
+            return $this;
+        }
+
+        // handle enum DeviceType
+        if ($deviceType instanceof DeviceType) {
+            $this->deviceType = $deviceType->value;
+            return $this;
+        }
+
+        // handle custom device type
+
+        $deviceTypeStr = strtoupper($deviceType);
+
+        $validDeviceTypes = array_column(DeviceType::cases(), 'value');
+        if (!in_array($deviceTypeStr, $validDeviceTypes, true)) {
+            throw new InvalidArgumentException(
+                'Device type must be one of: ' . implode(', ', $validDeviceTypes)
+            );
+        }
+
+        $this->deviceType = $deviceTypeStr;
+
+        return $this;
+    }
+
+
+    /**
+     * Get the currently set device type.
+     *
+     * @return string|null  - The current device type or null if none is set
+     */
+    public function getDevice(): ?string
+    {
+        return $this->deviceType;
+    }
+
+    /**
+     * Set the search type.
+     *
+     * @param  string|null $searchType  - Search type or null to clear
+     *
+     * @return self
+     */
+    public function setSearchType(?string $searchType): self
+    {
+        if ($searchType === null) {
+            $this->searchType = null;
+            return $this;
+        }
+
+        $this->searchType = strtoupper($searchType);
+
+        return $this;
+    }
+
+    /**
+     * Get the currently set search type.
+     *
+     * @return string|null  - The current search type or null if none is set
+     */
+    public function getSearchType(): ?string
+    {
+        return $this->searchType;
+    }
+
+    /**
      * Get the top keywords by day from Google Search Console.
      *
      * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.
@@ -373,6 +509,8 @@ class GoogleSearchConsoleClient
      *     data_date: string,
      *     site_url: string,
      *     query: string,
+     *     country?: string,
+     *     device?: string,
      *     impressions: int,
      *     clicks: int,
      *     sum_top_position: float
@@ -423,9 +561,11 @@ class GoogleSearchConsoleClient
      *     data_date: string,
      *     site_url: string,
      *     url: string,
+     *     country?: string,
+     *     device?: string,
      *     impressions: int,
      *     clicks: int,
-     *     sum_position: float
+     *     sum_top_position: float
      * }> Generator of daily performance data for top URLs
      *
      * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
@@ -486,6 +626,36 @@ class GoogleSearchConsoleClient
 
 
     /**
+     * Normalize dimensions to strings.
+     *
+     * @param  array<Dimension|string>  $dimensions  - Array of dimensions to normalize
+     *
+     * @return array<string>  - Array of normalized dimension strings
+     *
+     * @throws InvalidArgumentException  - If a dimension is neither a string nor a Dimension enum
+     */
+    private function normalizeDimensions(array $dimensions): array
+    {
+        return array_map(
+            static function ($dimension): string {
+                if ($dimension instanceof Dimension) {
+                    return $dimension->value;
+                }
+                if (is_string($dimension)) {
+                    // notice: we're not lowercasing here,
+                    // since not all dimensions are lowercase.
+                    return $dimension;
+                }
+                throw new \InvalidArgumentException(
+                    'Dimensions must be either strings or Dimension enum values'
+                );
+            },
+            $dimensions
+        );
+    }
+
+
+    /**
      * Get an array of dates between start and end date (inclusive).
      *
      * @param  DateTimeInterface|null $startDate  - Optional start date, defaults to instance start date
@@ -493,7 +663,10 @@ class GoogleSearchConsoleClient
      *
      * @return array<DateTimeInterface>  - Array of dates between start and end date (inclusive)
      */
-    private function getAllDatesInRange(?DateTimeInterface $startDate = null, ?DateTimeInterface $endDate = null): array
+    private function getAllDatesInRange(
+        ?DateTimeInterface $startDate = null,
+        ?DateTimeInterface $endDate = null
+    ): array
     {
         $dates = [];
         $currentDate = new DateTime(
@@ -513,55 +686,129 @@ class GoogleSearchConsoleClient
 
 
     /**
+     * Create a dimension filter group for a single dimension.
+     *
+     * @param  string $dimension   - The dimension to filter on (e.g., 'country', 'device')
+     * @param  string $expression  - The value to filter for
+     * @param  string $operator    - The operator to use (e.g., 'equals', 'contains', 'notContains', 'includingRegex')
+     *                              See https://developers.google.com/webmaster-tools/v1/searchanalytics/query#dimensionFilterGroups.filters.operator
+     *
+     * @return ApiDimensionFilterGroup  - The created filter group
+     */
+    public function getNewApiDimensionFilterGroup(
+        string $dimension,
+        string $expression,
+        string $operator = 'equals'
+    ): ApiDimensionFilterGroup
+    {
+        $filter = new ApiDimensionFilter();
+        $filter->setDimension($dimension);
+        $filter->setOperator($operator);
+        $filter->setExpression($expression);
+
+        $filterGroup = new ApiDimensionFilterGroup();
+        $filterGroup->setGroupType('and');
+        $filterGroup->setFilters([$filter]);
+
+        return $filterGroup;
+    }
+
+
+    /**
      * Create a search analytics query request object with the given or current settings.
      *
-     * @param  array<Dimension>        $dimensions  - Dimensions to group by (e.g. DATE, QUERY, PAGE)
-     * @param  DateTimeInterface|null  $startDate   - Start date (defaults to instance startDate)
-     * @param  DateTimeInterface|null  $endDate     - End date   (defaults to instance endDate)
-     * @param  int|null                $startRow    - Start row  (optional)
-     * @param  int|null                $rowLimit    - Row limit  (optional)
+     * @param  array<Dimension|string>  $dimensions  - Dimensions to group by (e.g. DATE, QUERY, PAGE, COUNTRY, DEVICE)
+     *                                                 Can be either Dimension enum values or strings
+     * @param  DateTimeInterface|null   $startDate   - Start date (defaults to instance startDate)
+     * @param  DateTimeInterface|null   $endDate     - End date   (defaults to instance endDate)
+     * @param  int|null                 $startRow    - Start row  (optional)
+     * @param  int|null                 $rowLimit    - Row limit  (optional)
+     * @param  array{
+     *     country?: string,
+     *     device?: string,
+     *     searchType?: string
+     * }                                $filters     - Optional filters for country, device, and search type
      *
      * @return SearchAnalyticsQueryRequest
      *
      * @throws InvalidArgumentException If no dimensions are provided and instance has none
      */
-    private function getNewSearchAnalyticsQueryRequest(
+    public function getNewSearchAnalyticsQueryRequest(
         array $dimensions,
         ?DateTimeInterface $startDate = null,
         ?DateTimeInterface $endDate = null,
         ?int $rowLimit = null,
         ?int $startRow = null,
+        array $filters = []
     ): SearchAnalyticsQueryRequest {
 
+        // Validate and normalize parameters
         if (empty($dimensions) ) {
-            throw new InvalidArgumentException('No dimensions provided.');
+            throw new \InvalidArgumentException('At least one dimension must be provided');
         }
 
-        if (!$this->hasDates() && (
-            ($startDate === null || $startDate <= $this->zeroDate) ||
-            ($endDate === null || $endDate <= $this->zeroDate)
-        )) {
-            throw new InvalidArgumentException('No dates set. Call setDates() first.');
+        // Normalize dimensions to "all strings"
+        $dimensions = $this->normalizeDimensions($dimensions);
+
+        // Set default dates if not provided
+        $startDate = $startDate ?? $this->startDate;
+        $endDate = $endDate ?? $this->endDate;
+
+        if ( !$this->isValidDate($startDate) || !$this->isValidDate($endDate) ) {
+            throw new \InvalidArgumentException('Both start and end dates must be set');
         }
 
-        if (!$this->hasProperty()) {
-            throw new InvalidArgumentException('No property set. Call setProperty() first.');
+        // Normalize row limit
+        $rowLimit = $this->normalizeRowLimit($rowLimit);
+
+        // Apply filter settings, if any.
+
+        if (!isset($filters['country']) && $this->countryCode !== null ) {
+            $filters['country'] = $this->countryCode;
         }
 
+        if (!isset($filters['device']) && $this->deviceType !== null ) {
+            $filters['device'] = $this->deviceType;
+        }
+
+        if (!isset($filters['searchType']) && $this->searchType !== null) {
+            $filters['searchType'] = $this->searchType;
+        }
+
+        // Prepare the request
         $request = new SearchAnalyticsQueryRequest();
-        $request->setDimensions(array_column($dimensions, 'value'));
-        $request->setStartDate(($startDate ?? $this->startDate)->format(DateFormat::DAILY->value));
-        $request->setEndDate(($endDate ?? $this->endDate)->format(DateFormat::DAILY->value));
+        $request->setStartDate($startDate->format(DateFormat::DAILY->value));
+        $request->setEndDate($endDate->format(DateFormat::DAILY->value));
+        $request->setDimensions($dimensions);
 
-        if ($rowLimit !== null) {
-            $rowLimit = $this->normalizeRowLimit($rowLimit);
-            $request->setRowLimit($rowLimit);
-            $request->setStartRow(0);
+        // Add optional filters
+        if (!empty($filters)) {
+            $dimensionFilterGroups = [];
+
+            // Country filter
+            if (isset($filters['country'])) {
+                $dimensionFilterGroups[] = $this->getNewApiDimensionFilterGroup('country', $filters['country']);
+            }
+
+            // Device filter
+            if (isset($filters['device'])) {
+                $dimensionFilterGroups[] = $this->getNewApiDimensionFilterGroup('device', $filters['device']);
+            }
+
+            // Search type filter
+            if (isset($filters['searchType'])) {
+                $request->setType($filters['searchType']);
+            }
+
+            if (!empty($dimensionFilterGroups)) {
+                $request->setDimensionFilterGroups($dimensionFilterGroups);
+            }
         }
 
         if ($startRow !== null) {
             $request->setStartRow($startRow);
         }
+        $request->setRowLimit($rowLimit);
 
         return $request;
     }
@@ -576,6 +823,8 @@ class GoogleSearchConsoleClient
      *     data_date: string,
      *     site_url: string,
      *     query: string,
+     *     country?: string,
+     *     device?: string,
      *     impressions: int,
      *     clicks: int,
      *     sum_top_position: float
@@ -583,8 +832,7 @@ class GoogleSearchConsoleClient
      */
     public function convertApiResponseKeywordsToArray(
         array|SearchAnalyticsQueryResponse|null $rows
-    ): \Generator
-    {
+    ): \Generator {
         if ($rows instanceof SearchAnalyticsQueryResponse) {
             $rows = $rows->getRows();
         }
@@ -599,18 +847,24 @@ class GoogleSearchConsoleClient
             $impressions = (int)$row->getImpressions();
             $position = $row->getPosition();
 
-            yield [
+            $result = [
                 'data_date' => $keys[0],
                 'site_url' => $this->property,
                 'query' => $keys[1],
-                // 'is_anonymized_query' => empty($keys[1]),
-                // 'Country' => 'XXX', // Not available in current API response
-                // 'search_type' => 'web', // Default to web search
-                // 'device' => 'DESKTOP', // Not available in current API response
                 'impressions' => $impressions,
                 'clicks' => $clicks,
                 'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
             ];
+
+            // Add country and device if available in keys
+            if (count($keys) > 2) {
+                $result['country'] = $keys[2] ?? null;
+            }
+            if (count($keys) > 3) {
+                $result['device'] = $keys[3] ?? null;
+            }
+
+            yield $result;
         }
     }
 
@@ -624,6 +878,8 @@ class GoogleSearchConsoleClient
      *     data_date: string,
      *     site_url: string,
      *     url: string,
+     *     country?: string,
+     *     device?: string,
      *     impressions: int,
      *     clicks: int,
      *     sum_top_position: float
@@ -631,8 +887,7 @@ class GoogleSearchConsoleClient
      */
     public function convertApiResponseUrlsToArray(
         array|SearchAnalyticsQueryResponse|null $rows
-    ): \Generator
-    {
+    ): \Generator {
         if ($rows instanceof SearchAnalyticsQueryResponse) {
             $rows = $rows->getRows();
         }
@@ -647,19 +902,24 @@ class GoogleSearchConsoleClient
             $impressions = (int)$row->getImpressions();
             $position = $row->getPosition();
 
-            yield [
+            $result = [
                 'data_date' => $keys[0],
                 'site_url' => $this->property,
                 'url' => $keys[1],
-                // 'is_anonymized_query' => empty($keys[1]),
-                // 'Country' => 'XXX', // Not available in current API response
-                // 'search_type' => 'web', // Default to web search
-                // 'device' => 'DESKTOP', // Not available in current API response
                 'impressions' => $impressions,
                 'clicks' => $clicks,
                 'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
             ];
+
+            // Add country and device if available in keys
+            if (count($keys) > 2) {
+                $result['country'] = $keys[2] ?? null;
+            }
+            if (count($keys) > 3) {
+                $result['device'] = $keys[3] ?? null;
+            }
+
+            yield $result;
         }
     }
-
 }
