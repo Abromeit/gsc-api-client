@@ -19,34 +19,37 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
   - [Keyword Data Structure](#keyword-data-structure)
   - [URL Data Structure](#url-data-structure)
 - [API Reference](#api-reference)
-- [Performance and Resource Requirements](#performance-and-resource-requirements)
+- [Speed and Resource Requirements](#speed-and-resource-requirements)
   - [Tested with Large-ish GSC Accounts](#tested-with-large-ish-gsc-accounts)
-    - [Memory Usage](#memory-usage)
-    - [Execution Time](#execution-time)
+    - [Testresults](#testresults)
 - [Google's Table Schema](#googles-table-schema)
   - [Table `searchdata_site_impression`](#table-searchdata_site_impression)
   - [Table `searchdata_url_impression`](#table-searchdata_url_impression)
 
 ## Requirements
 
+Nothing fancy here:
+
 - PHP 8.2+
-- Credentials for the Google Search Console API
-- A Google Search Console property with some data
+- Google Search Console API credentials
+- A GSC property that actually has some data in it
 
 ## Installation
 
 The GSC API Client is available as Composer package, which is most likely the easiest way to use this library.
 
-To install it via Composer:
+So, to install it via Composer:
 
 ```bash
 composer require abromeit/gsc-api-client
 ```
 
-1. Create a Google Cloud Project and enable the Search Console API
-2. Create credentials (Service Account recommended)
-3. Download the JSON credentials file
-4. Grant access to your Search Console properties to the service account email
+Before you can start pulling data, you'll need to:
+
+1. Set up a Google Cloud Project and enable the Search Console API
+2. Create credentials (we use service accounts)
+3. Download your JSON credentials file
+4. Give your service account email access to your GSC properties
 
 ## Usage Examples
 
@@ -67,6 +70,8 @@ $apiClient = new GscApiClient($googleClient);
 
 ### List Available Properties
 
+Want to see what properties you have access to? Easy:
+
 ```php
 $properties = $apiClient->getProperties();
 foreach ($properties as $property) {
@@ -76,6 +81,8 @@ foreach ($properties as $property) {
 ```
 
 ### Select a Property
+
+Pick your poison:
 
 ```php
 // Using URL
@@ -87,13 +94,15 @@ $apiClient->setProperty('sc-domain:example.com');
 
 ### Set Date Range
 
+Need last week's data? Got you covered:
+
 ```php
 // Last 7 days
 $startDate = (new DateTime('today'))->sub(new DateInterval('P7D'));
 $endDate = new DateTime('today');
 $apiClient->setDates($startDate, $endDate);
 
-// Or specific date range
+// Or if you need specific dates
 $apiClient->setDates(
     new DateTime('2024-01-01'),
     new DateTime('2024-01-31')
@@ -102,22 +111,26 @@ $apiClient->setDates(
 
 ### Get Search Performance Data
 
+Aaand here's where the magic happens:
+
 ```php
 // Get daily performance data
 $keywordData = $apiClient->getTopKeywordsByDay();
 
-// Get performance data by URLs (up to 5k rows per day)
+// Get URL data (max 5k rows per day, because Google says so)
 $urlData = $apiClient->getTopUrlsByDay();
 
-// Customize the number of rows per day (default/max: 5000)
-$keywordData = $apiClient->getTopKeywordsByDay(10);
+// Want fewer rows? No problem
+$keywordData = $apiClient->getTopKeywordsByDay(100);
 $urlData = $apiClient->getTopUrlsByDay(10);
 
-// Filter by country (using ISO-3166-1-Alpha-3 code)
+// Filter by country (ISO-3166-1-Alpha-3, because apparently ISO codes weren't confusing enough)
 $apiClient->setCountry('USA');
 
 // Filter by device type (DESKTOP, MOBILE, TABLET)
-$apiClient->setDevice(\Abromeit\GscApiClient\Enums\GSCDeviceType::DESKTOP);
+$apiClient->setDevice(\Abromeit\GscApiClient\Enums\GSCDeviceType::MOBILE);
+// or just
+$apiClient->setDevice('MOBILE');
 
 // Clear individual filters
 $apiClient->setCountry(null);
@@ -138,12 +151,13 @@ See https://developers.google.com/webmaster-tools/v1/how-tos/batch
 $batchSize = $apiClient->getBatchSize();
 
 // Set number of requests to batch together (1-1000)
-// Note that your batch size modification must take place
-// before calling methods like getTopKeywordsByDay(), which trigger API requests.
+// Pro tip: Set this BEFORE calling methods that hit the API >.<'
 $apiClient->setBatchSize(10);
 ```
 
 ### Accessing Returned Keyword Data
+
+Here's how to access returned GSC data:
 
 ```php
 $keywordData = $apiClient->getTopKeywordsByDay();
@@ -159,6 +173,8 @@ foreach ($keywordData as $row) {
 
 ### Accessing Returned URL Data
 
+Same assoc result array, but for URLs:
+
 ```php
 $urlData = $apiClient->getTopUrlsByDay();
 
@@ -173,9 +189,11 @@ foreach ($urlData as $row) {
 
 ## Return Values
 
-The performance methods return arrays matching Google's BigQuery schema. (Via https://support.google.com/webmasters/answer/12917991?hl=en )
+The data structure matches Google's BigQuery schema (thanks Google for at least being consistent here). If you're curious about the details: https://support.google.com/webmasters/answer/12917991?hl=en
 
 ### Keyword Data Structure
+
+Here's what you get for each keyword row:
 
 ```php
 /* <Generator> */
@@ -195,6 +213,8 @@ The performance methods return arrays matching Google's BigQuery schema. (Via ht
 
 ### URL Data Structure
 
+And here is how a result row looks like for URLs:
+
 ```php
 /* <Generator> */
     [
@@ -211,10 +231,9 @@ The performance methods return arrays matching Google's BigQuery schema. (Via ht
 /* </Generator> */
 ```
 
-
 ## API Reference
 
-The following table lists all public methods available in the `GscApiClient` class:
+Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 
 | Method Signature | Return Type | Description |
 |-----------------|-------------|-------------|
@@ -250,29 +269,49 @@ The following table lists all public methods available in the `GscApiClient` cla
 
 ## Speed and Resource Requirements
 
-The client has been updated to a yield-style implementation, which offers several advantages above traditional returns:
+We've updated the GSC API Client to use a yield-style implementation because waiting for the entire dataset to load before processing is no fun. Here's what you get:
 
-- Data is returned sooner, allowing processing of initial entries without waiting for the entire dataset. (Effectively **streaming** the data as it becomes available.)
-- The BatchSize config option now allows us to choose of either speed or minimal memory usage. _(I'd love to say "and any point in between", but in reality even small batch sizes can result in substantial HTTP response sizes. - which unsuprisingly affects the memory footprint our application has.)_
+- Data starts flowing as soon as it's available _(effectively **streaming** it)_
+- The BatchSize config option now allows us to choose of either speed or memory efficiency. _(I'd love to say "and any point in between", but in reality even small batch sizes can result in substantial HTTP response sizes. - which unsuprisingly affects the memory footprint our application has.)_
 
 ### Tested with Large-ish GSC Accounts
 
-Tests were conducted in a local environment, not on a production server. 
+These numbers are from a local dev machine running who-knows-what in the background - so take them with a grain of salt. But you'll see the pattern.
 
-We requested 16 months of daily data using `getTopKeywordsByDay()`. This function, based on the "byProperty" aggregation, returns the top 5k keywords per day. _(I.e. the max. row number was 5k at the time of testing, not 25k or more. This is undocumented behavior of the official API.)_
+We grabbed 16 months of daily data using `getTopKeywordsByDay()`. This function uses the "byProperty" aggregation, which seemingly means you get the top 5k entries (keywords) per day. (This behavior is only … "implicitly" documented. You'll most likely find numbers around 25k+ rows in the documentation. These exist, just not here.)
 
-The result returned 499 days of data in 2,495,000 rows. (One row contains the keyword with impressions, clicks, ctr for a single day.)
+The result is 499 days of data in 2,495,000 rows. Each row contains a keyword with its `impressions`, `clicks`, and `ctr` for a single day.
 
-#### Performance Metrics
+#### Testresults
 
 | Implementation | Batch Size | Peak Memory   | Runtime     |
 |----------------|------------|---------------|-------------|
-| Array-style    | 1          | 1269 MB      | 307s (5.1m) |
-| Yield-style    | 1          | 45 MB (-96%)  | 313s (5.2m) |
-| Array-style    | 10         | 1329 MB      | 194s (3.2m) |
+| Array-style    | 1          | 1269 MB       | 307s (5.1m) |
+| Yield-style    | 1          | 45 MB  (-96%) | 313s (5.2m) |
+| Array-style    | 10         | 1329 MB       | 194s (3.2m) |
 | Yield-style    | 10         | 145 MB (-89%) | 193s (3.2m) |
-| Array-style    | 1000       | 1917 MB      | 36s (0.6m)  |
-| Yield-style    | 1000       | 639 MB (-67%) | 38s (0.6m)  |
+| Array-style    | 1000       | 1917 MB       | 36s  (0.6m) |
+| Yield-style    | 1000       | 639 MB (-67%) | 38s  (0.6m) |
+
+##### Batch=1 (the painful way):
+
+- One HTTP request per day = 498 separate, sequential connections with handshakes, headers, waiting for the response from google, the whole deal
+- Array version: **1.2GB RAM**, 5.1min runtime _(congratulations, you now have time to check your unread emails)_
+- Yield version: <ins>**45MB RAM**</ins>, but same glacial speed _(because physics)_
+
+##### Batch=10 (getting somewhere):
+
+- Runtime drops to ~3.2min by bundling into ~50 requests
+- Memory stays manageable with yield (145MB)
+- Array version still hoarding RAM like it's mining crypto (1.3GB)
+
+##### Batch=1000 (now we're cooking):
+
+- 36-38 seconds runtime with just 1-2 connections total
+- Memory jumps to 1.9GB array / 639MB yield
+- If your server has the RAM, this is probably what you want
+
+The yield implementation keeps memory in check while matching speed. Higher batch sizes absolutely demolish runtime by reducing HTTP overhead, but they'll eat your RAM. Choose based on your server specs.
 
 ## Google's Table Schema
 
@@ -316,4 +355,3 @@ This table contains data aggregated by URL. The table contains the following fie
 | impressions             | integer | Same as above.                                                                                                                                                                                              |
 | clicks                  | integer | Same as above.                                                                                                                                                                                              |
 | sum_position            | float   | A zero-based number indicating the topmost position of this URL in the search results for the query. (Zero is the top position in the results.) To calculate average position (which is 1-based), calculate `SUM(sum_position)/SUM(impressions) + 1`. |
-
