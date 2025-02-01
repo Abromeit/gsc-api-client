@@ -240,7 +240,7 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 | `__construct(Client $client)` | `void` | Initializes a new GSC API client instance |
 | `getBatchSize()` | `int` | Gets the current batch size setting |
 | `setBatchSize(int $batchSize)` | `self` | Sets number of requests to batch (1-1000, default 10) |
-| `getProperties()` | `WmxSite[]` | Gets all properties the user has access to |
+| `getProperties()` | `Google\Service\SearchConsole\WmxSite[]` | Gets all properties the user has access to |
 | `setProperty(string $siteUrl)` | `self` | Sets the property to work with |
 | `getProperty()` | `string \| null` | Gets the currently set property URL |
 | `hasProperty()` | `bool` | Checks if a property is set |
@@ -263,7 +263,7 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 | `getDevice()` | `string \| null` | Gets the current device type |
 | `setSearchType([?string $searchType=null])` | `self` | Sets search type (e.g., 'WEB', 'NEWS') |
 | `getSearchType()` | `string \| null` | Gets the current search type |
-| `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
+| `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `Google\Service\SearchConsole\ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top URLs by day |
 
@@ -283,6 +283,8 @@ We grabbed 16 months of daily data using `getTopKeywordsByDay()`. This function 
 The result is 499 days of data in 2,495,000 rows. Each row contains a keyword with its `impressions`, `clicks`, and `ctr` for a single day.
 
 #### Testresults
+
+![Terminal-rendered bar graphs of the GSC API Client's memory consumption and execution duration for different batch sizes and PHP implementation variants. (See table below for textual representation.)](docs/performance-comparison-gsc-api-with-generator-functions.png)
 
 | Implementation | Batch Size | Peak Memory   | Runtime     |
 |----------------|------------|---------------|-------------|
