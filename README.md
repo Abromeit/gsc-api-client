@@ -248,7 +248,7 @@ The following table lists all public methods available in the `GscApiClient` cla
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top URLs by day |
 
-## Performance and Resource Requirements
+## Speed and Resource Requirements
 
 The client has been updated to a yield-style implementation, which offers several advantages above traditional returns:
 
@@ -263,25 +263,18 @@ We requested 16 months of daily data using `getTopKeywordsByDay()`. This functio
 
 The result returned 499 days of data in 2,495,000 rows. (One row contains the keyword with impressions, clicks, ctr for a single day.)
 
-#### Memory Usage
+#### Measured Performance Characteristics
 
-Observed peak memory usage across all batch sizes.
+These are ballpark numbers.
 
-- **Array-style**:
-  - Min.: ??? (AFAIR ~500 MB?)
-  - Max.: 1.4 GB
-- **Yield-style**:
-  - Min.: **46 MB (-91%)**
-  - Max.: 608.9 MB (-56%)
-
-#### Execution Time
-
-Execution time is slightly reduced in the new yield-style version, but remains in the same ballpark across implementations. Here are the **runtimes for yield-style**:
-
-- **setBatchSize(1)**: ~320 seconds (5.3 minutes)
-- **setBatchSize(10)**: ~189 seconds (3.2 minutes)
-- **setBatchSize(1000)**: ~35 seconds (0.6 minutes)
-
+| Implementation | Batch Size | Peak Memory   | Runtime     |
+|----------------|------------|---------------|-------------|
+| Array-style    | 1          | 1,269 MB      | 307s (5.1m) |
+| Yield-style    | 1          | 45 MB (-96%)  | 313s (5.2m) |
+| Array-style    | 10         | 1,329 MB      | 194s (3.2m) |
+| Yield-style    | 10         | 145 MB (-89%) | 193s (3.2m) |
+| Array-style    | 1000       | 1,917 MB      | 36s (0.6m)  |
+| Yield-style    | 1000       | 639 MB (-67%) | 38s (0.6m)  |
 
 ## Google's Table Schema
 
