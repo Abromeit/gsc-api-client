@@ -27,6 +27,10 @@ playground.php
 credentials/*
 !credentials/.gitkeep
 
+# Ignore everything in credentials except .gitkeep
+logs/*
+!logs/.gitkeep
+
 ## /PROJECT CUSTOM ##
 
 
