@@ -19,6 +19,8 @@ use Abromeit\GscApiClient\Enums\GSCDateFormat as DateFormat;
 use Abromeit\GscApiClient\Enums\GSCDimension as Dimension;
 use Abromeit\GscApiClient\Enums\GSCDeviceType as DeviceType;
 use Abromeit\GscApiClient\BatchProcessor;
+use GuzzleHttp\HandlerStack;
+use Abromeit\GscApiClient\RetryMiddleware;
 
 class GscApiClient
 {
@@ -59,7 +61,31 @@ class GscApiClient
     public function __construct(
         Client $client
     ) {
+        // Set up error logging
+        $logDir = dirname(__DIR__) . '/logs';
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+        $logFile = $logDir . '/gsc-api-' . date('Y-m-d') . '.log';
+        ini_set('error_log', $logFile);
+        error_log("Starting new GSC API Client session");
+
         $this->client = $client;
+
+        // Create a handler stack with our retry middleware
+        $stack = HandlerStack::create();
+        $stack->push(RetryMiddleware::create(
+            maxRetries: 3,
+            initialDelay: 64,  // 64 seconds
+            backoffFactor: 2.0   // doubles each retry
+        ));
+
+        // Set up the HTTP client with retry and timeout configuration
+        $this->client->setHttpClient(new \GuzzleHttp\Client([
+            'handler' => $stack,
+            'timeout' => 180,
+            'connect_timeout' => 90,
+        ]));
 
         $this->searchConsole = new SearchConsole($this->client);
         $this->batchProcessor = new BatchProcessor($this->client);

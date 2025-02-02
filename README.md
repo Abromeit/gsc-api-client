@@ -292,10 +292,11 @@ The result is 499 days of data in 2,495,000 rows. Each row contains a keyword wi
 | Yield-style    | 1          | 45 MB  (-96%) | 313s (5.2m) |
 | Array-style    | 10         | 1329 MB       | 194s (3.2m) |
 | Yield-style    | 10         | 145 MB (-89%) | 193s (3.2m) |
+| Yield-style    | 15         | 205.2 MB      | 189s (3.2m) |
 | Array-style    | 1000       | 1917 MB       | 36s  (0.6m) |
 | Yield-style    | 1000       | 639 MB (-67%) | 38s  (0.6m) |
 
-##### Batch=1 (the painful way):
+##### Batch=1 (the long way round):
 
 - One HTTP request per day = 498 separate, sequential connections with handshakes, headers, waiting for the response from google, the whole deal
 - Array version: **1.2GB RAM**, 5.1min runtime _(congratulations, you now have time to check your unread emails)_
@@ -311,9 +312,15 @@ The result is 499 days of data in 2,495,000 rows. Each row contains a keyword wi
 
 - 36-38 seconds runtime with just 1-2 connections total
 - Memory jumps to 1.9GB array / 639MB yield
-- If your server has the RAM, this is probably what you want
+- If your server has the RAM, this is probably what you want, right?
 
-The yield implementation keeps memory in check while matching speed. Higher batch sizes absolutely demolish runtime by reducing HTTP overhead, but they'll eat your RAM. Choose based on your server specs.
+##### How to find a good BatchSize
+
+The yield implementation keeps memory in check while matching speed. 
+But note that Google enforces a per-site quota of `20 requests per second` = `120 api calls per minute` (see [Google's QPS Quota](https://developers.google.com/webmaster-tools/limits?hl=en#qps-quota)). Higher batch sizes will make you feel good about some measured metrics, but they're lying to you - the API is just dropping your requests.
+
+Stick to batch sizes below 20 unless you are fully aware of the implications, as exceeding the quota can lead to unnecessarily long runtimes. Which is the opposite of what you want.
+
 
 ## Google's Table Schema
 
