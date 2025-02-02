@@ -286,15 +286,16 @@ The result is 499 days of data in 2,495,000 rows. Each row contains a keyword wi
 
 ![Terminal-rendered bar graphs of the GSC API Client's memory consumption and execution duration for different batch sizes and PHP implementation variants. (See table below for textual representation.)](docs/performance-comparison-gsc-api-with-generator-functions.png)
 
-| Implementation | Batch Size | Peak Memory   | Runtime     |
-|----------------|------------|---------------|-------------|
-| Array-style    | 1          | 1269 MB       | 307s (5.1m) |
-| Yield-style    | 1          | 45 MB  (-96%) | 313s (5.2m) |
-| Array-style    | 10         | 1329 MB       | 194s (3.2m) |
-| Yield-style    | 10         | 145 MB (-89%) | 193s (3.2m) |
-| Yield-style    | 15         | 205.2 MB      | 189s (3.2m) |
-| Array-style    | 1000       | 1917 MB       | 36s  (0.6m) |
-| Yield-style    | 1000       | 639 MB (-67%) | 38s  (0.6m) |
+| Implementation | Batch Size | Peak Memory   | Runtime             |
+|----------------|------------|---------------|---------------------|
+| Array-style    | 1          | 1269 MB       | 307s (5.1m)         |
+| Yield-style    | 1          | 45 MB  (-96%) | 290s (4.8m)         |
+| Yield-style    | 5          | 86 MB         | 188s (3.1m)         |
+| Array-style    | 10         | 1329 MB       | 194s (3.2m)         |
+| Yield-style    | 10         | 145 MB (-89%) | 183s (3.1m)         |
+| Yield-style    | 15         | 205 MB        | 189s (3.2m) // sic! |
+| Array-style    | 1000       | 1917 MB       | 36s  (0.6m)         |
+| Yield-style    | 1000       | 639 MB (-67%) | 38s  (0.6m)         |
 
 ##### Batch=1 (the long way round):
 
