@@ -25,6 +25,7 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
 - [Google's Table Schema](#googles-table-schema)
   - [Table `searchdata_site_impression`](#table-searchdata_site_impression)
   - [Table `searchdata_url_impression`](#table-searchdata_url_impression)
+- [Additional Resources](#additional-resources)
 
 ## Requirements
 
