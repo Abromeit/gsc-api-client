@@ -320,14 +320,14 @@ The result is 499 days of data in 2,495,000 rows. Each row contains a keyword wi
 The yield implementation keeps memory in check while matching speed. 
 But note that Google enforces a per-site quota of `20 requests per second` = `120 api calls per minute` (see [Google's QPS Quota](https://developers.google.com/webmaster-tools/limits?hl=en#qps-quota)). Higher batch sizes will make you feel good about some measured metrics, but they're lying to you - the API is just dropping your requests.
 
-Stick to batch sizes below 20 unless you are fully aware of the implications, as exceeding the quota can lead to unnecessarily long runtimes. Which is the opposite of what you want.
+**Stick to batch sizes below 20** unless you are fully aware of the implications, as exceeding the quota can lead to unnecessarily long runtimes. Which is the opposite of what you want.
 
 
 ## Google's Table Schema
 
-It is not always easy to think about GSC data. Therefore, it is great to be able to see how Google itself handles the problem.
+Thinking about GSC data can be a real head-scratcher sometimes. At every corner, certain information might be missing or needs to be interpreted in a specific way to arrive at meaningful results. Fortunately, it helps to look at how Google itself handles the same data. _Ooo-wee!_
 
-If you export your GSC data to BigQuery, you will find the following situation in the tables.
+So - if you export your GSC data to BigQuery, you will find the following situation in the tables.
 
 ### Table `searchdata_site_impression`
 
@@ -365,3 +365,12 @@ This table contains data aggregated by URL. The table contains the following fie
 | impressions             | integer | Same as above.                                                                                                                                                                                              |
 | clicks                  | integer | Same as above.                                                                                                                                                                                              |
 | sum_position            | float   | A zero-based number indicating the topmost position of this URL in the search results for the query. (Zero is the top position in the results.) To calculate average position (which is 1-based), calculate `SUM(sum_position)/SUM(impressions) + 1`. |
+
+## Additional Resources
+
+For more details on topics discussed in this GSC API Client's Readme file, refer to the official documentation and guidelines provided by Google:
+
+- **Batch Requests:** [Google Search Console API Batch Requests](https://developers.google.com/webmaster-tools/v1/how-tos/batch?hl=en)
+- **API Request Limits:** [Google Search Console API Limits and Quotas](https://developers.google.com/webmaster-tools/limits?hl=en#qps-quota)
+- **Getting Started with the Search Console API:** [Quickstart - Search Console API](https://developers.google.com/webmaster-tools/v3/quickstart)
+- **Setting Up Service Accounts:** [Using Service Accounts](https://developers.google.com/identity/protocols/oauth2/service-account)
