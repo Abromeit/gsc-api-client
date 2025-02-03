@@ -7,6 +7,7 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage Examples](#usage-examples)
+  - [Example Files](#example-files)
   - [Initialize the Client](#initialize-the-client)
   - [List Available Properties](#list-available-properties)
   - [Select a Property](#select-a-property)
@@ -53,6 +54,14 @@ Before you can start pulling data, you'll need to:
 4. Give your service account email access to your GSC properties
 
 ## Usage Examples
+
+### Example Files
+
+Check out these ready-to-use examples in the `examples/` directory:
+
+- [`get-all-properties.php`](examples/get-all-properties.php) - List all GSC properties you have access to
+- [`get-top3-keywords-per-day.php`](examples/get-top3-keywords-per-day.php) - Get the top 3 keywords for each day
+- [`get-top3-urls-per-day.php`](examples/get-top3-urls-per-day.php) - Get the top 3 URLs for each day
 
 ### Initialize the Client
 
