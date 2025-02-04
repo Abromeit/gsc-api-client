@@ -448,6 +448,17 @@ class GscApiClient
 
 
     /**
+     * Check if a country filter is set.
+     *
+     * @return bool  - True if a country filter is set
+     */
+    public function hasCountry(): bool
+    {
+        return $this->countryCode !== null;
+    }
+
+
+    /**
      * Set the device type.
      *
      * @param  DeviceType|string|null $deviceType  - Device type or null to clear
@@ -497,6 +508,18 @@ class GscApiClient
         return $this->deviceType;
     }
 
+
+    /**
+     * Check if a device filter is set.
+     *
+     * @return bool  - True if a device filter is set
+     */
+    public function hasDevice(): bool
+    {
+        return $this->deviceType !== null;
+    }
+
+
     /**
      * Set the search type.
      *
@@ -516,6 +539,7 @@ class GscApiClient
         return $this;
     }
 
+
     /**
      * Get the currently set search type.
      *
@@ -525,6 +549,7 @@ class GscApiClient
     {
         return $this->searchType;
     }
+
 
     /**
      * Get the top keywords by day from Google Search Console.

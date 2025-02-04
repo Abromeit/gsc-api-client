@@ -294,8 +294,10 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 | `hasDates()` | `bool` | Checks if both dates are set |
 | `setCountry([?string $countryCode=null])` | `self` | Sets country using ISO-3166-1-Alpha-3 code |
 | `getCountry()` | `string \| null` | Gets the current country |
+| `hasCountry()` | `bool` | Checks if a country filter is set |
 | `setDevice([?DeviceType $deviceType=null])` | `self` | Sets device type |
 | `getDevice()` | `string \| null` | Gets the current device type |
+| `hasDevice()` | `bool` | Checks if a device filter is set |
 | `setSearchType([?string $searchType=null])` | `self` | Sets search type (e.g., 'WEB', 'NEWS') |
 | `getSearchType()` | `string \| null` | Gets the current search type |
 | `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `Google\Service\SearchConsole\ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
