@@ -29,8 +29,8 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
       - [Batch=1000 (now we're cooking)](#batch1000-now-were-cooking)
       - [How to find a good BatchSize](#how-to-find-a-good-batchsize)
 - [Google's Table Schema](#googles-table-schema)
-  - [Table searchdata_site_impression](#table-searchdata_site_impression)
-  - [Table searchdata_url_impression](#table-searchdata_url_impression)
+  - [Table `searchdata_site_impression`](#table-searchdata_site_impression)
+  - [Table `searchdata_url_impression`](#table-searchdata_url_impression)
 - [Additional Resources](#additional-resources)
 
 ## Requirements
@@ -371,7 +371,7 @@ Thinking about GSC data can be a real head-scratcher sometimes. At every corner,
 
 So - if you export your GSC data to BigQuery, you will find the following situation in the tables.
 
-### Table searchdata_site_impression
+### Table `searchdata_site_impression`
 
 This table contains data aggregated by property. The table contains the following fields:
 
@@ -388,7 +388,7 @@ This table contains data aggregated by property. The table contains the followin
 | clicks               | integer | The number of clicks for this row.                                                                                                                                                                          |
 | sum_top_position     | float   | The sum of the topmost position of the site in the search results for each impression in that table row, where zero is the top position in the results. To calculate average position (which is 1-based), calculate `SUM(sum_top_position)/SUM(impressions) + 1`. |
 
-### Table searchdata_url_impression
+### Table `searchdata_url_impression`
 
 This table contains data aggregated by URL. The table contains the following fields:
 
