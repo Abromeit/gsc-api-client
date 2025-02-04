@@ -19,6 +19,7 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
 - [Return Values](#return-values)
   - [Keyword Data Structure](#keyword-data-structure)
   - [URL Data Structure](#url-data-structure)
+  - [Search Performance Data Structure](#search-performance-data-structure)
 - [API Reference](#api-reference)
 - [Speed and Resource Requirements](#speed-and-resource-requirements)
   - [Tested with Large-ish GSC Accounts](#tested-with-large-ish-gsc-accounts)
@@ -127,12 +128,15 @@ Aaand here's where the magic happens:
 // Get daily performance data
 $keywordData = $apiClient->getTopKeywordsByDay();
 
-// Get URL data (max 5k rows per day, because Google says so)
+// Get URL data (max 25k rows per request)
 $urlData = $apiClient->getTopUrlsByDay();
 
 // Want fewer rows? No problem
 $keywordData = $apiClient->getTopKeywordsByDay(100);
 $urlData = $apiClient->getTopUrlsByDay(10);
+
+// Get comprehensive search performance data
+$performanceData = $apiClient->getSearchPerformanceByUrl();
 
 // Filter by country (ISO-3166-1-Alpha-3, because apparently ISO codes weren't confusing enough)
 $apiClient->setCountry('USA');
@@ -241,6 +245,27 @@ And here is how a result row looks like for URLs:
 /* </Generator> */
 ```
 
+### Search Performance by URL Data Structure
+
+Here is the rather comprehensive result for the full "Search Performance by URL".
+
+```php
+/* <Generator> */
+    [
+        'data_date' => string,         // Format: YYYY-MM-DD
+        'site_url' => string,          // Property URL
+        'url' => string,               // Page URL
+        'query' => string,             // Search query that led to the page
+        'country' => string,           // ISO-3166-1-Alpha-3 country code
+        'device' => string,            // DESKTOP, MOBILE, or TABLET
+        'impressions' => int,          // Total impressions
+        'clicks' => int,               // Total clicks
+        'sum_top_position' => float    // Sum of positions * impressions
+    ],
+    // etc.
+/* </Generator> */
+```
+
 ## API Reference
 
 Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
@@ -276,6 +301,7 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 | `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `Google\Service\SearchConsole\ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top URLs by day |
+| `getSearchPerformanceByUrl([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets comprehensive search performance data |
 
 ## Speed and Resource Requirements
 
