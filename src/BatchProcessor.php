@@ -234,11 +234,22 @@ class BatchProcessor
         $failedItems = [];
         foreach ($responses as $requestId => $response) {
             if (!$response instanceof SearchAnalyticsQueryResponse) {
-                $this->logError(sprintf(
-                    "Failed response for requestId %s: %s",
-                    $requestId,
-                    get_class($response)
-                ));
+                if ($response instanceof \Google\Service\Exception) {
+                    $this->logError(sprintf(
+                        "Failed response for requestId %s: %s\nMessage: %s\nErrors: %s\nCode: %d",
+                        $requestId,
+                        get_class($response),
+                        $response->getMessage(),
+                        json_encode($response->getErrors(), JSON_PRETTY_PRINT),
+                        $response->getCode()
+                    ));
+                } else {
+                    $this->logError(sprintf(
+                        "Failed response for requestId %s: %s",
+                        $requestId,
+                        get_class($response)
+                    ));
+                }
                 $failedItems[] = $requestMap[$requestId] ?? null;
                 continue;
             }
@@ -248,6 +259,16 @@ class BatchProcessor
                     $results[] = $result;
                 }
             } catch (\Exception $e) {
+                if ($e instanceof \Google\Service\Exception) {
+                    $this->logError(sprintf(
+                        "Exception in response handler for requestId %s: %s\nMessage: %s\nErrors: %s\nCode: %d",
+                        $requestId,
+                        get_class($e),
+                        $e->getMessage(),
+                        json_encode($e->getErrors(), JSON_PRETTY_PRINT),
+                        $e->getCode()
+                    ));
+                }
                 $errorHandler($e, $requestMap[$requestId] ?? null);
             }
         }

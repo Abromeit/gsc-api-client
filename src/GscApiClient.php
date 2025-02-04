@@ -18,6 +18,7 @@ use DateTime;
 use Abromeit\GscApiClient\Enums\GSCDateFormat as DateFormat;
 use Abromeit\GscApiClient\Enums\GSCDimension as Dimension;
 use Abromeit\GscApiClient\Enums\GSCDeviceType as DeviceType;
+use Abromeit\GscApiClient\Enums\GSCAggregationType as AggregationType;
 use Abromeit\GscApiClient\BatchProcessor;
 use GuzzleHttp\HandlerStack;
 use Abromeit\GscApiClient\RetryMiddleware;
@@ -550,6 +551,7 @@ class GscApiClient
         $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
             $request = $this->getNewSearchAnalyticsQueryRequest(
                 dimensions: [Dimension::DATE, Dimension::QUERY],
+                aggregationType: AggregationType::BY_PROPERTY,
                 startDate: $date,
                 endDate: $date,
                 rowLimit: $maxRowsPerDay
@@ -602,6 +604,7 @@ class GscApiClient
         $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
             $request = $this->getNewSearchAnalyticsQueryRequest(
                 dimensions: [Dimension::DATE, Dimension::PAGE],
+                aggregationType: AggregationType::BY_PAGE,
                 startDate: $date,
                 endDate: $date,
                 rowLimit: $maxRowsPerDay
@@ -618,6 +621,116 @@ class GscApiClient
             $this->getAllDatesInRange(),
             $newBatchRequest,
             [$this, 'convertApiResponseUrlsToArray']
+        );
+
+        // Yield results instead of merging
+        foreach ($results as $dayResults) {
+            foreach ($dayResults as $result) {
+                yield $result;
+            }
+        }
+    }
+
+
+    /**
+     * Convert API response rows to match the search performance schema.
+     *
+     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
+     *
+     * @return \Generator<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     url: string,
+     *     query: string,
+     *     country: string|null,
+     *     device: string|null,
+     *     impressions: int,
+     *     clicks: int,
+     *     sum_top_position: float
+     * }> Converted performance data
+     */
+    public function convertApiResponseSearchPerformanceToArray(
+        array|SearchAnalyticsQueryResponse|null $rows
+    ): \Generator {
+        if ($rows instanceof SearchAnalyticsQueryResponse) {
+            $rows = $rows->getRows();
+        }
+
+        if (empty($rows)) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $keys = $row->getKeys();
+            $clicks = (int)$row->getClicks();
+            $impressions = (int)$row->getImpressions();
+            $position = $row->getPosition();
+
+            $result = [
+                'data_date' => $keys[0],
+                'site_url' => $this->property,
+                'url' => $keys[1],
+                'query' => $keys[2] ?? null,
+                'country' => $keys[3] ?? null,
+                'device' => $keys[4] ?? null,
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
+            ];
+
+            yield $result;
+        }
+    }
+
+
+    /**
+     * Get the top URLs by day from Google Search Console.
+     *
+     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day.
+     *
+     * @return \Generator<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     url: string,
+     *     query?: string,
+     *     country?: string,
+     *     device?: string,
+     *     impressions: int,
+     *     clicks: int,
+     *     sum_top_position: float
+     * }> Generator of daily performance data for top URLs
+     *
+     * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
+     */
+    public function getSearchPerformanceByUrl(?int $maxRowsPerDay = null): \Generator
+    {
+        // Define how our request should look like
+        $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
+            $request = $this->getNewSearchAnalyticsQueryRequest(
+                dimensions: [
+                    Dimension::DATE,
+                    Dimension::PAGE,
+                    Dimension::QUERY,
+                    Dimension::COUNTRY,
+                    Dimension::DEVICE
+                ],
+                aggregationType: AggregationType::BY_PAGE,
+                startDate: $date,
+                endDate: $date,
+                rowLimit: $maxRowsPerDay
+            );
+
+            return $this->batchProcessor->createBatchRequest(
+                $this->property,
+                $request
+            );
+        };
+
+        // Process all dates in batches of 'n'.
+        $results = $this->batchProcessor->processInBatches(
+            $this->getAllDatesInRange(),
+            $newBatchRequest,
+            [$this, 'convertApiResponseSearchPerformanceToArray']
         );
 
         // Yield results instead of merging
@@ -741,19 +854,49 @@ class GscApiClient
 
 
     /**
+     * Normalize aggregation type to string.
+     *
+     * @param  AggregationType|string|null  $aggregationType  - Aggregation type to normalize
+     *
+     * @return string  - Normalized aggregation type string
+     *
+     * @throws InvalidArgumentException  - If aggregation type is neither a string nor an AggregationType enum
+     */
+    private function normalizeAggregationType(AggregationType|string|null $aggregationType): string {
+
+        if( $aggregationType === null ){
+            return AggregationType::AUTO->value;
+        }
+
+        if( $aggregationType instanceof AggregationType ){
+            return $aggregationType->value;
+        }
+
+        if( is_string($aggregationType) ){
+            return $aggregationType;
+        }
+
+        throw new \InvalidArgumentException(
+            'Aggregation type must be either string or AggregationType enum value'
+        );
+    }
+
+
+    /**
      * Create a search analytics query request object with the given or current settings.
      *
-     * @param  array<Dimension|string>  $dimensions  - Dimensions to group by (e.g. DATE, QUERY, PAGE, COUNTRY, DEVICE)
-     *                                                 Can be either Dimension enum values or strings
-     * @param  DateTimeInterface|null   $startDate   - Start date (defaults to instance startDate)
-     * @param  DateTimeInterface|null   $endDate     - End date   (defaults to instance endDate)
-     * @param  int|null                 $startRow    - Start row  (optional)
-     * @param  int|null                 $rowLimit    - Row limit  (optional)
+     * @param  array<Dimension|string>  $dimensions      - Dimensions to group by (e.g. DATE, QUERY, PAGE, COUNTRY, DEVICE)
+     *                                                     Can be either Dimension enum values or strings
+     * @param  DateTimeInterface|null   $startDate       - Start date (defaults to instance startDate)
+     * @param  DateTimeInterface|null   $endDate         - End date   (defaults to instance endDate)
+     * @param  int|null                 $startRow        - Start row  (optional)
+     * @param  int|null                 $rowLimit        - Row limit  (optional)
      * @param  array{
      *     country?: string,
      *     device?: string,
      *     searchType?: string
-     * }                                $filters     - Optional filters for country, device, and search type
+     * }                                $filters         - Optional filters for country, device, and search type
+     * @param  AggregationType|null     $aggregationType - Aggregation type (defaults to AUTO)
      *
      * @return SearchAnalyticsQueryRequest
      *
@@ -765,7 +908,8 @@ class GscApiClient
         ?DateTimeInterface $endDate = null,
         ?int $rowLimit = null,
         ?int $startRow = null,
-        array $filters = []
+        array $filters = [],
+        ?AggregationType $aggregationType = null
     ): SearchAnalyticsQueryRequest {
 
         // Validate and normalize parameters
@@ -801,11 +945,15 @@ class GscApiClient
             $filters['searchType'] = $this->searchType;
         }
 
+        // Normalize aggregation type to "all strings"
+        $aggregationType = $this->normalizeAggregationType($aggregationType);
+
         // Prepare the request
         $request = new SearchAnalyticsQueryRequest();
         $request->setStartDate($startDate->format(DateFormat::DAILY->value));
         $request->setEndDate($endDate->format(DateFormat::DAILY->value));
         $request->setDimensions($dimensions);
+        $request->setAggregationType($aggregationType);
 
         // Add optional filters
         if (!empty($filters)) {
