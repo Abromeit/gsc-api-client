@@ -711,8 +711,6 @@ class GscApiClient
     /**
      * Get the top URLs by day from Google Search Console.
      *
-     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day.
-     *
      * @return \Generator<array{
      *     data_date: string,
      *     site_url: string,
@@ -727,42 +725,84 @@ class GscApiClient
      *
      * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
      */
-    public function getSearchPerformanceByUrl(?int $maxRowsPerDay = null): \Generator
+    public function getSearchPerformanceByUrl(): \Generator
     {
-        // Define how our request should look like
-        $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
-            $request = $this->getNewSearchAnalyticsQueryRequest(
-                dimensions: [
-                    Dimension::DATE,
-                    Dimension::PAGE,
-                    Dimension::QUERY,
-                    Dimension::COUNTRY,
-                    Dimension::DEVICE
-                ],
-                aggregationType: AggregationType::BY_PAGE,
-                startDate: $date,
-                endDate: $date,
-                rowLimit: $maxRowsPerDay
+        $currentStartRow = 0;
+        $maxRowsPerRequest = self::MAX_ROWS_PER_REQUEST;
+        $datesOfInterest = $this->getAllDatesInRange();
+
+        while ( !empty($datesOfInterest) ){
+
+            // Define how our request should look like
+            $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerRequest, $currentStartRow) {
+                $request = $this->getNewSearchAnalyticsQueryRequest(
+                    dimensions: [
+                        Dimension::DATE,
+                        Dimension::PAGE,
+                        Dimension::QUERY,
+                        Dimension::COUNTRY,
+                        Dimension::DEVICE
+                    ],
+                    aggregationType: AggregationType::BY_PAGE,
+                    startDate: $date,
+                    endDate: $date,
+                    rowLimit: $maxRowsPerRequest,
+                    startRow: $currentStartRow
+                );
+
+                return $this->batchProcessor->createBatchRequest(
+                    $this->property,
+                    $request
+                );
+            };
+
+
+            $rowsReturnedByDate = [];
+
+            // Process all dates in batches of 'n'.
+            $results = $this->batchProcessor->processInBatches(
+                $datesOfInterest,
+                $newBatchRequest,
+                [$this, 'convertApiResponseSearchPerformanceToArray']
             );
 
-            return $this->batchProcessor->createBatchRequest(
-                $this->property,
-                $request
-            );
-        };
+            // Yield results instead of merging
+            foreach ($results as $dayResults) {
+                foreach ($dayResults as $result) {
 
-        // Process all dates in batches of 'n'.
-        $results = $this->batchProcessor->processInBatches(
-            $this->getAllDatesInRange(),
-            $newBatchRequest,
-            [$this, 'convertApiResponseSearchPerformanceToArray']
-        );
+                    if (isset($result['data_date'])) {
+                        $rowsReturnedByDate[$result['data_date']] = (
+                            !isset($rowsReturnedByDate[$result['data_date']]) ? 0
+                            : $rowsReturnedByDate[$result['data_date']] + 1
+                        );
+                    }
 
-        // Yield results instead of merging
-        foreach ($results as $dayResults) {
-            foreach ($dayResults as $result) {
-                yield $result;
+                    yield $result;
+                }
             }
+
+            // Filter out dates that have returned fewer rows than the maximum,
+            // indicating we have all their data
+            $datesOfInterest = array_filter(
+                $datesOfInterest,
+                function(DateTimeInterface $date) use ($rowsReturnedByDate, $maxRowsPerRequest): bool {
+                    $dateStr = $date->format(DateFormat::DAILY->value);
+                    return isset($rowsReturnedByDate[$dateStr]) &&
+                        $rowsReturnedByDate[$dateStr] >= $maxRowsPerRequest;
+                }
+            );
+
+            // Keep dates that either haven't been processed yet or have more data to fetch
+            $datesOfInterest = array_filter(
+                $datesOfInterest,
+                function(DateTimeInterface $date) use ($rowsReturnedByDate, $maxRowsPerRequest): bool {
+                    $dateStr = $date->format(DateFormat::DAILY->value);
+                    return !isset($rowsReturnedByDate[$dateStr]) ||
+                           $rowsReturnedByDate[$dateStr] >= $maxRowsPerRequest;
+                }
+            );
+
+            $currentStartRow += $maxRowsPerRequest;
         }
     }
 
