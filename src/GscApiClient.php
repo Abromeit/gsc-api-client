@@ -769,7 +769,6 @@ class GscApiClient
             // Yield results instead of merging
             foreach ($results as $dayResults) {
                 foreach ($dayResults as $result) {
-
                     if (isset($result['data_date'])) {
                         $rowsReturnedByDate[$result['data_date']] = (
                             !isset($rowsReturnedByDate[$result['data_date']]) ? 0
@@ -789,16 +788,6 @@ class GscApiClient
                     $dateStr = $date->format(DateFormat::DAILY->value);
                     return isset($rowsReturnedByDate[$dateStr]) &&
                         $rowsReturnedByDate[$dateStr] >= $maxRowsPerRequest;
-                }
-            );
-
-            // Keep dates that either haven't been processed yet or have more data to fetch
-            $datesOfInterest = array_filter(
-                $datesOfInterest,
-                function(DateTimeInterface $date) use ($rowsReturnedByDate, $maxRowsPerRequest): bool {
-                    $dateStr = $date->format(DateFormat::DAILY->value);
-                    return !isset($rowsReturnedByDate[$dateStr]) ||
-                           $rowsReturnedByDate[$dateStr] >= $maxRowsPerRequest;
                 }
             );
 
