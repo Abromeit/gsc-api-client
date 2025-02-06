@@ -79,9 +79,9 @@ class GscApiClient
         // Create a handler stack with our middleware
         $stack = HandlerStack::create();
 
-        // Add request counter middleware first to get accurate counts
+        // Add request counter middleware
         $this->requestCounter = new RequestCounterMiddleware();
-        $stack->unshift($this->requestCounter);  // Use unshift to add at the beginning of the stack
+        $stack->push($this->requestCounter);
 
         // Then add retry middleware
         $stack->push(RetryMiddleware::create(
@@ -765,22 +765,22 @@ class GscApiClient
                 );
             };
 
-
             $rowsReturnedByDate = [];
 
             // Process all dates in batches of 'n'.
-            $results = $this->batchProcessor->processInBatches(
+            $batchedResults = $this->batchProcessor->processInBatches(
                 $datesOfInterest,
                 $newBatchRequest,
                 [$this, 'convertApiResponseSearchPerformanceToArray']
             );
 
             // Yield results instead of merging
-            foreach ($results as $dayResults) {
-                foreach ($dayResults as $result) {
+            foreach ($batchedResults as $results) {
+                foreach ($results as $result) {
+
                     if (isset($result['data_date'])) {
                         $rowsReturnedByDate[$result['data_date']] = (
-                            !isset($rowsReturnedByDate[$result['data_date']]) ? 0
+                            !isset($rowsReturnedByDate[$result['data_date']]) ? 1
                             : $rowsReturnedByDate[$result['data_date']] + 1
                         );
                     }
@@ -796,7 +796,7 @@ class GscApiClient
                 function(DateTimeInterface $date) use ($rowsReturnedByDate, $maxRowsPerRequest): bool {
                     $dateStr = $date->format(DateFormat::DAILY->value);
                     return isset($rowsReturnedByDate[$dateStr]) &&
-                        $rowsReturnedByDate[$dateStr] >= $maxRowsPerRequest;
+                        $rowsReturnedByDate[$dateStr] === $maxRowsPerRequest;
                 }
             );
 
