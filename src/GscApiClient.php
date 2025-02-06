@@ -65,15 +65,6 @@ class GscApiClient
     public function __construct(
         Client $client
     ) {
-        // Set up error logging
-        $logDir = dirname(__DIR__) . '/logs';
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true);
-        }
-        $logFile = $logDir . '/gsc-api-' . date('Y-m-d') . '.log';
-        ini_set('error_log', $logFile);
-        error_log("Starting new GSC API Client session");
-
         $this->client = $client;
 
         // Create a handler stack with our middleware
