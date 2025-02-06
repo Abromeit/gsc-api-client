@@ -278,8 +278,8 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 |-----------------|-------------|-------------|
 | `__construct(Client $client)` | `void` | Initializes a new GSC API client instance |
 | `getBatchSize()` | `int` | Gets the current batch size setting |
-| `setBatchSize(int $batchSize)` | `self` | Sets number of requests to batch (1-1000, default 10) |
-| `getProperties()` | `Google\Service\SearchConsole\WmxSite[]` | Gets all properties the user has access to |
+| `setBatchSize(int $batchSize)` | `self` | Sets number of requests to batch (1-1000) |
+| `getProperties()` | `WmxSite[]` | Gets all properties the user has access to |
 | `setProperty(string $siteUrl)` | `self` | Sets the property to work with |
 | `getProperty()` | `string \| null` | Gets the currently set property URL |
 | `hasProperty()` | `bool` | Checks if a property is set |
@@ -299,17 +299,17 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 | `setCountry([?string $countryCode=null])` | `self` | Sets country using ISO-3166-1-Alpha-3 code |
 | `getCountry()` | `string \| null` | Gets the current country |
 | `hasCountry()` | `bool` | Checks if a country filter is set |
-| `setDevice([?DeviceType $deviceType=null])` | `self` | Sets device type |
+| `setDevice([DeviceType\|string\|null $deviceType=null])` | `self` | Sets device type |
 | `getDevice()` | `string \| null` | Gets the current device type |
 | `hasDevice()` | `bool` | Checks if a device filter is set |
 | `setSearchType([?string $searchType=null])` | `self` | Sets search type (e.g., 'WEB', 'NEWS') |
 | `getSearchType()` | `string \| null` | Gets the current search type |
-| `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `Google\Service\SearchConsole\ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
-| `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top keywords by day |
-| `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top URLs by day |
-| `getSearchPerformanceByUrl([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets all available columns from `byPage` aggregated data sources |
-| `getRequestsPerSecond()` | `float` | Gets the current average API queries per second (includes individual API queries from batch requests) |
-| `getTotalRequests()` | `int` | Gets the total number of API queries made (includes individual API queries from batch requests) |
+| `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator=\'equals\'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering |
+| `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, query: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top keywords by day |
+| `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top URLs by day |
+| `getSearchPerformanceByUrl()` | `Generator<array{data_date: string, site_url: string, url: string, query: string, country: string, device: string, impressions: int, clicks: int, sum_top_position: float}>` | Gets all available columns from `byPage` aggregated data sources |
+| `getRequestsPerSecond([int $seconds=1])` | `float` | Gets the current average API queries per second |
+| `getTotalRequests([int $seconds=60])` | `int` | Gets the total number of API queries made |
 
 ## Speed and Resource Requirements
 
