@@ -22,6 +22,7 @@ use Abromeit\GscApiClient\Enums\GSCAggregationType as AggregationType;
 use Abromeit\GscApiClient\BatchProcessor;
 use GuzzleHttp\HandlerStack;
 use Abromeit\GscApiClient\RetryMiddleware;
+use Abromeit\GscApiClient\RequestCounterMiddleware;
 
 class GscApiClient
 {
@@ -59,6 +60,8 @@ class GscApiClient
     private ?string $deviceType = null;
     private ?string $searchType = null;
 
+    private RequestCounterMiddleware $requestCounter;
+
     public function __construct(
         Client $client
     ) {
@@ -73,8 +76,14 @@ class GscApiClient
 
         $this->client = $client;
 
-        // Create a handler stack with our retry middleware
+        // Create a handler stack with our middleware
         $stack = HandlerStack::create();
+
+        // Add request counter middleware first to get accurate counts
+        $this->requestCounter = new RequestCounterMiddleware();
+        $stack->unshift($this->requestCounter);  // Use unshift to add at the beginning of the stack
+
+        // Then add retry middleware
         $stack->push(RetryMiddleware::create(
             maxRetries: 3,
             initialDelay: 64,  // 64 seconds
@@ -1146,5 +1155,31 @@ class GscApiClient
 
             yield $result;
         }
+    }
+
+
+    /**
+     * Get current requests per second.
+     *
+     * @param  int $seconds  - Number of seconds to look back (1-60)
+     *
+     * @return float  - Average requests per second
+     */
+    public function getRequestsPerSecond(int $seconds = 1): float
+    {
+        return $this->requestCounter->getRequestsPerSecond($seconds);
+    }
+
+
+    /**
+     * Get total requests in the last n seconds.
+     *
+     * @param  int $seconds  - Number of seconds to look back (1-60)
+     *
+     * @return int  - Total number of requests
+     */
+    public function getTotalRequests(int $seconds = 60): int
+    {
+        return $this->requestCounter->getTotalRequests($seconds);
     }
 }
