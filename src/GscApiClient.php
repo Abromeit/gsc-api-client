@@ -23,6 +23,7 @@ use Abromeit\GscApiClient\BatchProcessor;
 use GuzzleHttp\HandlerStack;
 use Abromeit\GscApiClient\RetryMiddleware;
 use Abromeit\GscApiClient\RequestCounterMiddleware;
+use Abromeit\GscApiClient\ThrottlingMiddleware;
 
 class GscApiClient
 {
@@ -73,6 +74,9 @@ class GscApiClient
         // Add request counter middleware
         $this->requestCounter = new RequestCounterMiddleware();
         $stack->push($this->requestCounter);
+
+        // Add throttling middleware
+        $stack->push(ThrottlingMiddleware::create());
 
         // Then add retry middleware
         $stack->push(RetryMiddleware::create(
