@@ -307,7 +307,9 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 | `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator='equals'])` | `Google\Service\SearchConsole\ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering. Operator can be 'equals', 'contains', 'notContains', 'includingRegex' |
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets top URLs by day |
-| `getSearchPerformanceByUrl([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets comprehensive search performance data |
+| `getSearchPerformanceByUrl([?int $maxRowsPerDay=null])` | `Generator<array{...}>` | Gets all available columns from `byPage` aggregated data sources |
+| `getRequestsPerSecond()` | `float` | Gets the current average API queries per second (includes individual API queries from batch requests) |
+| `getTotalRequests()` | `int` | Gets the total number of API queries made (includes individual API queries from batch requests) |
 
 ## Speed and Resource Requirements
 
