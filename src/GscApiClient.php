@@ -88,8 +88,12 @@ class GscApiClient
         // Set up the HTTP client with retry and timeout configuration
         $this->client->setHttpClient(new \GuzzleHttp\Client([
             'handler' => $stack,
-            'timeout' => 180,
+            'timeout' => 5 * 60, // 5 minutes (timeout includes the duration you need to download the response and the endpoint loves to be slow.)
             'connect_timeout' => 90,
+            'headers' => [
+                'Accept-Encoding' => 'gzip, deflate'
+            ],
+            'decode_content' => true  // This tells Guzzle to handle decompression automatically
         ]));
 
         $this->searchConsole = new SearchConsole($this->client);
@@ -1156,25 +1160,21 @@ class GscApiClient
     /**
      * Get current requests per second.
      *
-     * @param  int $seconds  - Number of seconds to look back (1-60)
-     *
      * @return float  - Average requests per second
      */
-    public function getRequestsPerSecond(int $seconds = 1): float
+    public function getRequestsPerSecond(): float
     {
-        return $this->requestCounter->getRequestsPerSecond($seconds);
+        return $this->requestCounter->getRequestsPerSecond();
     }
 
 
     /**
      * Get total requests in the last n seconds.
      *
-     * @param  int $seconds  - Number of seconds to look back (1-60)
-     *
      * @return int  - Total number of requests
      */
-    public function getTotalRequests(int $seconds = 60): int
+    public function getTotalRequests(): int
     {
-        return $this->requestCounter->getTotalRequests($seconds);
+        return $this->requestCounter->getTotalRequests();
     }
 }

@@ -28,6 +28,7 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
       - [Batch=10 (getting somewhere)](#batch10-getting-somewhere)
       - [Batch=1000 (now we're cooking)](#batch1000-now-were-cooking)
       - [How to find a good BatchSize](#how-to-find-a-good-batchsize)
+  - [Real-World Performance Test](#real-world-performance-test)
 - [Google's Table Schema](#googles-table-schema)
   - [Table `searchdata_site_impression`](#table-searchdata_site_impression)
   - [Table `searchdata_url_impression`](#table-searchdata_url_impression)
@@ -326,7 +327,10 @@ We grabbed 16 months of daily data using `getTopKeywordsByDay()`. This function 
 
 The result is 499 days of data in 2,495,000 rows. Each row contains a keyword with its `impressions`, `clicks`, and `ctr` for a single day.
 
+
 #### Test Results
+
+<ins>**NOTE: This data reflects a software version before the implementation of the ThrottlingMiddleware. Consequently, performance metrics may differ from the current version, which enforces API request limits.**</ins>
 
 ![Terminal-rendered bar graphs of the GSC API Client's memory consumption and execution duration for different batch sizes and PHP implementation variants. (See table below for textual representation.)](docs/performance-comparison-gsc-api-with-generator-functions.png)
 
@@ -365,6 +369,24 @@ The yield implementation keeps memory in check while matching speed.
 But note that Google enforces a per-site quota of `20 requests per second` = `120 api calls per minute` (see [Google's QPS Quota](https://developers.google.com/webmaster-tools/limits?hl=en#qps-quota)). Higher batch sizes will make you feel good about some measured metrics, but they're lying to you - the API is just dropping your requests.
 
 **Stick to batch sizes below 20** unless you are fully aware of the implications, as exceeding the quota can lead to unnecessarily long runtimes. Which is the opposite of what you want.
+
+##### Real-World Performance Test
+
+<ins>**NOTE: The following performance metrics reflect measurements taken with the "current" software version, which includes ThrottlingMiddleware for API request rate limiting. These results supersede the data shown above.**</ins>
+
+Here is another test fetching 3 months of data using `getSearchPerformanceByUrl()` with various batch sizes. These are the results:
+
+| Batch Size | Total Rows | Peak Memory | Avg Memory | Runtime | Rows/Second | QPS |
+|------------|------------|-------------|------------|---------|-------------|-----|
+| 1          | 4,505,486  | 118.1 MB    | 85.4 MB    | 491.6s  | 9,165      | 0.37 |
+| 20         | 4,505,486  | 707.4 MB    | 539.4 MB   | 171.4s  | 26,283     | 1.07 |
+| 75         | 4,505,486  | 1,362.2 MB  | 1,017.3 MB | 150.3s  | 29,984     | 1.22 |
+| 175        | 4,505,486  | 3,386.8 MB  | 2,229.5 MB | 142.8s  | 31,547     | 1.29 |
+
+- 91 days of data (2024-11-06 to 2025-02-06)
+- ~49,510 rows per day (min: 48,860, max: 49,772) 
+- Total data volume: 4.5M rows, ~1.2GB compressed JSON
+
 
 
 ## Google's Table Schema
