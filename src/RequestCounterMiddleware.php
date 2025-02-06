@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Abromeit\GscApiClient;
 
 use Psr\Http\Message\RequestInterface;
+use Abromeit\GscApiClient\Traits\SearchAnalyticsQueryCounter;
 
 /**
  * Middleware to count actual API queries at HTTP client level.
@@ -13,6 +14,8 @@ use Psr\Http\Message\RequestInterface;
  */
 class RequestCounterMiddleware
 {
+    use SearchAnalyticsQueryCounter;
+
     /**
      * @var float  - Start timestamp of the middleware with microsecond precision
      */
@@ -42,7 +45,7 @@ class RequestCounterMiddleware
     {
         return function (RequestInterface $request, array $options) use ($handler) {
             if ($this->isBatchExecution($request)) {
-                $queryCount = $this->countQueriesInBatch($request);
+                $queryCount = (int)$this->countQueriesInBatch($request);
                 $this->recordQueries($queryCount);
             }
             elseif ($this->isSearchAnalyticsRequest($request)) {
@@ -64,45 +67,6 @@ class RequestCounterMiddleware
 
             return $response;
         };
-    }
-
-    /**
-     * Check if this is a batch execution request.
-     *
-     * @param  RequestInterface $request  - The request to check
-     *
-     * @return bool  - True if this is a batch execution
-     */
-    private function isBatchExecution(RequestInterface $request): bool
-    {
-        return $request->getMethod() === 'POST' && (
-            str_contains($request->getUri()->getPath(), '/batch') ||
-            str_contains($request->getHeaderLine('Content-Type'), 'multipart/mixed')
-        );
-    }
-
-    /**
-     * Check if this is a search analytics request.
-     *
-     * @param  RequestInterface $request  - The request to check
-     *
-     * @return bool  - True if this is a search analytics request
-     */
-    private function isSearchAnalyticsRequest(RequestInterface $request): bool
-    {
-        return str_contains($request->getUri()->getPath(), '/searchAnalytics/query');
-    }
-
-    /**
-     * Count the number of queries in a batch request.
-     *
-     * @param  RequestInterface $request  - The batch request
-     *
-     * @return int  - Number of queries in the batch
-     */
-    private function countQueriesInBatch(RequestInterface $request): int
-    {
-        return substr_count((string)$request->getBody(), '/searchAnalytics/query');
     }
 
     /**
