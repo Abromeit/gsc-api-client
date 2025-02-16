@@ -49,7 +49,7 @@ The GSC API Client is available as Composer package, which is most likely the ea
 So, to install it via Composer:
 
 ```bash
-composer require abromeit/gsc-api-client
+composer require abromeit/gsc-api-client:dev-main
 ```
 
 Before you can start pulling data, you'll need to:
