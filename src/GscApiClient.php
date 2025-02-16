@@ -573,6 +573,7 @@ class GscApiClient
      *     device?: string,
      *     impressions: int,
      *     clicks: int,
+     *     position: int,
      *     sum_top_position: float
      * }> Generator of daily performance data for top keywords
      *
@@ -626,6 +627,7 @@ class GscApiClient
      *     device?: string,
      *     impressions: int,
      *     clicks: int,
+     *     position: int,
      *     sum_top_position: float
      * }> Generator of daily performance data for top URLs
      *
@@ -679,6 +681,7 @@ class GscApiClient
      *     device: string|null,
      *     impressions: int,
      *     clicks: int,
+     *     position: int,
      *     sum_top_position: float
      * }> Converted performance data
      */
@@ -708,7 +711,8 @@ class GscApiClient
                 'device' => $keys[4] ?? null,
                 'impressions' => $impressions,
                 'clicks' => $clicks,
-                'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
+                'position' => $position,
+                'sum_top_position' => ($position - 1) * $impressions,
             ];
 
             yield $result;
@@ -1086,7 +1090,8 @@ class GscApiClient
                 'query' => $keys[1],
                 'impressions' => $impressions,
                 'clicks' => $clicks,
-                'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
+                'position' => $position,
+                'sum_top_position' => ($position - 1) * $impressions,
             ];
 
             // Add country and device if available in keys
@@ -1115,6 +1120,7 @@ class GscApiClient
      *     device?: string,
      *     impressions: int,
      *     clicks: int,
+     *     position: int,
      *     sum_top_position: float
      * }> Converted performance data
      */
@@ -1141,7 +1147,8 @@ class GscApiClient
                 'url' => $keys[1],
                 'impressions' => $impressions,
                 'clicks' => $clicks,
-                'sum_top_position' => ($position - 1) * $impressions, // Convert 1-based to 0-based and multiply by impressions
+                'position' => $position,
+                'sum_top_position' => ($position - 1) * $impressions,
             ];
 
             // Add country and device if available in keys

@@ -184,6 +184,7 @@ $keywordData = $apiClient->getTopKeywordsByDay();
 foreach ($keywordData as $row) {
     echo "Date: {$row['data_date']}\n";
     echo "Query: {$row['query']}\n";
+    echo "Position: ".number_format($row['position'], 1)."\n";
     echo "Clicks: {$row['clicks']}\n";
     echo "Impressions: {$row['impressions']}\n";
     echo "Sum Top Position: {$row['sum_top_position']}\n";
@@ -200,6 +201,7 @@ $urlData = $apiClient->getTopUrlsByDay();
 foreach ($urlData as $row) {
     echo "Date: {$row['data_date']}\n";
     echo "URL: {$row['url']}\n";
+    echo "Position: ".number_format($row['position'], 1)."\n";
     echo "Clicks: {$row['clicks']}\n";
     echo "Impressions: {$row['impressions']}\n";
     echo "Sum Top Position: {$row['sum_top_position']}\n";
@@ -224,7 +226,8 @@ Here's what you get for each keyword row:
         'device' => ?string,           // Optional: DESKTOP, MOBILE, or TABLET
         'impressions' => int,          // Total impressions
         'clicks' => int,               // Total clicks
-        'sum_top_position' => float    // Sum of positions * impressions
+        'position' => float,           // Average 1-based position
+        'sum_top_position' => float    // Sum of (position-1)*impressions
     ],
     // etc.
 /* </Generator> */
@@ -244,7 +247,8 @@ And here is how a result row looks like for URLs:
         'device' => ?string,           // Optional: DESKTOP, MOBILE, or TABLET
         'impressions' => int,          // Total impressions
         'clicks' => int,               // Total clicks
-        'sum_top_position' => float    // Sum of positions * impressions
+        'position' => float,           // Average 1-based position
+        'sum_top_position' => float    
     ],
     // etc.
 /* </Generator> */
@@ -265,7 +269,8 @@ Here is the rather comprehensive result for the full "Search Performance by URL"
         'device' => string,            // DESKTOP, MOBILE, or TABLET
         'impressions' => int,          // Total impressions
         'clicks' => int,               // Total clicks
-        'sum_top_position' => float    // Sum of positions * impressions
+        'position' => float,           // Average 1-based position
+        'sum_top_position' => float    
     ],
     // etc.
 /* </Generator> */
@@ -410,7 +415,8 @@ This table contains data aggregated by property. The table contains the followin
 | device               | string  | The device from which the query was made.                                                                                                                                                                   |
 | impressions          | integer | The number of impressions for this row.                                                                                                                                                                     |
 | clicks               | integer | The number of clicks for this row.                                                                                                                                                                          |
-| sum_top_position     | float   | The sum of the topmost position of the site in the search results for each impression in that table row, where zero is the top position in the results. To calculate average position (which is 1-based), calculate `SUM(sum_top_position)/SUM(impressions) + 1`. |
+| sum_top_position     | float   | The sum of (position-1) * impressions. Allows further aggregation of position data. |
+| position             | float   | The average 1-based position as reported directly by the GSC API. |
 
 ### Table `searchdata_url_impression`
 
