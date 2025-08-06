@@ -560,6 +560,72 @@ class GscApiClient
 
 
     /**
+     * Get the first date with available data for the current property and date range.
+     *
+     * This method queries Google Search Console to discover which dates have data
+     * available, which is recommended before running the main queries to avoid
+     * unnecessary API calls for dates with no data.
+     *
+     * If no dates are provided and no instance dates are set, this method will use
+     * a default range of the last 18 months from today.
+     *
+     * @param  DateTimeInterface|null $startDate  - Optional start date, defaults to instance start date or 18 months ago
+     * @param  DateTimeInterface|null $endDate    - Optional end date, defaults to instance end date or today
+     *
+     * @return DateTimeInterface|null  - The first date with data, or null if no data exists
+     *
+     * @throws InvalidArgumentException If property is not set or dates are invalid
+     */
+    public function getFirstDateWithData(
+        ?DateTimeInterface $startDate = null,
+        ?DateTimeInterface $endDate = null
+    ): ?DateTimeInterface {
+
+        if( $this->property === null ){
+            throw new InvalidArgumentException('Property must be set before querying data');
+        }
+
+        // Use provided dates or fall back to instance dates, or use default range
+        $startDate = $startDate ?? $this->startDate;
+        $endDate = $endDate ?? $this->endDate;
+
+        // Set default end date if invalid
+        if( !$this->isValidDate($endDate) ){
+            $endDate = new DateTime('now'); // Use current date for fresh data capability
+        }
+
+        // Set default start date if invalid (18 months before end date)
+        if( !$this->isValidDate($startDate) ){
+            $startDate = new DateTime($endDate->format(DateFormat::DAILY->value));
+            $startDate->modify('-18 months');
+        }
+
+        // Create a simple request to get available dates
+        $request = new SearchAnalyticsQueryRequest();
+        $request->setStartDate($startDate->format(DateFormat::DAILY->value));
+        $request->setEndDate($endDate->format(DateFormat::DAILY->value));
+        $request->setDimensions([Dimension::DATE->value]);
+        $request->setRowLimit(1); // We only need the first date
+
+        // Execute the query directly
+        /** @var SearchAnalyticsQueryResponse $response */
+        $response = $this->searchConsole->searchanalytics->query($this->property, $request);
+
+        $rows = $response->getRows();
+
+        if( empty($rows) ){
+            return null;
+        }
+
+        // Get the first row's date (they should be sorted by date ascending by default)
+        $firstRow = $rows[0];
+        $dateString = $firstRow->getKeys()[0];
+
+        return new DateTime($dateString);
+    }
+
+
+    /**
      * Get the top keywords by day from Google Search Console.
      *
      * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.

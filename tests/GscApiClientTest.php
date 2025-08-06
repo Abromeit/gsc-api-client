@@ -839,6 +839,318 @@ class GscApiClientTest extends TestCase
         // Verify search type is set
         $this->assertEquals('WEB', $request->getType());
     }
+
+
+    public function testGetFirstDateWithDataReturnsFirstDate(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Set up client with property and dates
+        $this->client->setProperty('https://example.com/')
+            ->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-31'));
+
+        // Create mock API response data
+        $mockRow = $this->createMock(SearchConsole\ApiDataRow::class);
+        $mockRow->expects($this->once())
+            ->method('getKeys')
+            ->willReturn(['2024-01-15']);
+
+        $mockResponse = $this->createMock(SearchConsole\SearchAnalyticsQueryResponse::class);
+        $mockResponse->expects($this->once())
+            ->method('getRows')
+            ->willReturn([$mockRow]);
+
+        // Configure searchanalytics mock to return our response
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($mockResponse);
+
+        // Execute method
+        $result = $this->client->getFirstDateWithData();
+
+        // Verify result
+        $this->assertInstanceOf(DateTime::class, $result);
+        $this->assertEquals('2024-01-15', $result->format('Y-m-d'));
+    }
+
+
+    public function testGetFirstDateWithDataReturnsNullWhenNoData(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Set up client with property and dates
+        $this->client->setProperty('https://example.com/')
+            ->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-31'));
+
+        // Create mock API response with no data
+        $mockResponse = $this->createMock(SearchConsole\SearchAnalyticsQueryResponse::class);
+        $mockResponse->expects($this->once())
+            ->method('getRows')
+            ->willReturn([]);
+
+        // Configure searchanalytics mock to return empty response
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($mockResponse);
+
+        // Execute method
+        $result = $this->client->getFirstDateWithData();
+
+        // Verify result is null
+        $this->assertNull($result);
+    }
+
+
+    public function testGetFirstDateWithDataThrowsExceptionWhenNoPropertySet(): void
+    {
+        // Set dates but no property
+        $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-31'));
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Property must be set before querying data');
+
+        $this->client->getFirstDateWithData();
+    }
+
+
+    public function testGetFirstDateWithDataUsesDefaultRangeWhenNoDatesSet(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Set property but no dates
+        $this->client->setProperty('https://example.com/');
+
+        // Create mock API response data
+        $mockRow = $this->createMock(SearchConsole\ApiDataRow::class);
+        $mockRow->expects($this->once())
+            ->method('getKeys')
+            ->willReturn(['2024-01-15']);
+
+        $mockResponse = $this->createMock(SearchConsole\SearchAnalyticsQueryResponse::class);
+        $mockResponse->expects($this->once())
+            ->method('getRows')
+            ->willReturn([$mockRow]);
+
+                // Configure searchanalytics mock to return our response
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->with(
+                $this->equalTo('https://example.com/'),
+                $this->callback(function($request) {
+                                        // Verify that the request uses default date range (18 months)
+                    $startDate = new DateTime($request->getStartDate());
+                    $endDate = new DateTime($request->getEndDate());
+                    $now = new DateTime('now');
+                    $expectedStart = (clone $now)->modify('-18 months');
+
+                    // Allow for small time differences due to test execution time
+                    $startDiff = abs($startDate->getTimestamp() - $expectedStart->getTimestamp());
+                    $endDiff = abs($endDate->getTimestamp() - $now->getTimestamp());
+
+                    return $startDiff <= 86400 && $endDiff <= 86400; // Within 1 day tolerance
+                })
+            )
+            ->willReturn($mockResponse);
+
+        // Execute method - should work without throwing exception
+        $result = $this->client->getFirstDateWithData();
+
+        // Verify result
+        $this->assertInstanceOf(DateTime::class, $result);
+        $this->assertEquals('2024-01-15', $result->format('Y-m-d'));
+    }
+
+
+    public function testGetFirstDateWithDataUsesProvidedDates(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Set up client with property and different instance dates
+        $this->client->setProperty('https://example.com/')
+            ->setDates(new DateTime('2023-01-01'), new DateTime('2023-12-31'));
+
+        // Create mock API response data
+        $mockRow = $this->createMock(SearchConsole\ApiDataRow::class);
+        $mockRow->expects($this->once())
+            ->method('getKeys')
+            ->willReturn(['2024-02-10']);
+
+        $mockResponse = $this->createMock(SearchConsole\SearchAnalyticsQueryResponse::class);
+        $mockResponse->expects($this->once())
+            ->method('getRows')
+            ->willReturn([$mockRow]);
+
+        // Configure searchanalytics mock to return our response
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($mockResponse);
+
+        // Execute method with custom dates
+        $customStartDate = new DateTime('2024-02-01');
+        $customEndDate = new DateTime('2024-02-28');
+        $result = $this->client->getFirstDateWithData($customStartDate, $customEndDate);
+
+        // Verify result uses the returned date
+        $this->assertInstanceOf(DateTime::class, $result);
+        $this->assertEquals('2024-02-10', $result->format('Y-m-d'));
+    }
+
+
+    public function testGetFirstDateWithDataUsesDefaultRangeWhenNullDatesProvided(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Set property but no instance dates
+        $this->client->setProperty('https://example.com/');
+
+        // Create mock API response data
+        $mockRow = $this->createMock(SearchConsole\ApiDataRow::class);
+        $mockRow->expects($this->once())
+            ->method('getKeys')
+            ->willReturn(['2024-01-20']);
+
+        $mockResponse = $this->createMock(SearchConsole\SearchAnalyticsQueryResponse::class);
+        $mockResponse->expects($this->once())
+            ->method('getRows')
+            ->willReturn([$mockRow]);
+
+        // Configure searchanalytics mock to return our response
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($mockResponse);
+
+        // Execute method with explicit null dates - should use default range
+        $result = $this->client->getFirstDateWithData(null, null);
+
+        // Verify result
+        $this->assertInstanceOf(DateTime::class, $result);
+        $this->assertEquals('2024-01-20', $result->format('Y-m-d'));
+    }
+
+
+    public function testGetFirstDateWithDataUsesOnlyValidInstanceDate(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Set property and only valid start date
+        $this->client->setProperty('https://example.com/')
+            ->setStartDate(new DateTime('2024-01-01'));
+        // End date remains null
+
+        // Create mock API response data
+        $mockRow = $this->createMock(SearchConsole\ApiDataRow::class);
+        $mockRow->expects($this->once())
+            ->method('getKeys')
+            ->willReturn(['2024-01-05']);
+
+        $mockResponse = $this->createMock(SearchConsole\SearchAnalyticsQueryResponse::class);
+        $mockResponse->expects($this->once())
+            ->method('getRows')
+            ->willReturn([$mockRow]);
+
+        // Configure searchanalytics mock to return our response
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->with(
+                $this->equalTo('https://example.com/'),
+                $this->callback(function($request) {
+                    // Verify that start date is instance date and end date is default (now)
+                    $startDate = new DateTime($request->getStartDate());
+                    $endDate = new DateTime($request->getEndDate());
+                    $now = new DateTime('now');
+                    $expectedStart = new DateTime('2024-01-01');
+
+                    // Allow for small time differences
+                    $startDiff = abs($startDate->getTimestamp() - $expectedStart->getTimestamp());
+                    $endDiff = abs($endDate->getTimestamp() - $now->getTimestamp());
+
+                    return $startDiff <= 86400 && $endDiff <= 86400; // Within 1 day tolerance
+                })
+            )
+            ->willReturn($mockResponse);
+
+        // Execute method
+        $result = $this->client->getFirstDateWithData();
+
+        // Verify result
+        $this->assertInstanceOf(DateTime::class, $result);
+        $this->assertEquals('2024-01-05', $result->format('Y-m-d'));
+    }
+
+
+    public function testGetFirstDateWithDataUsesProvidedValidStartDateAndDefaultEndDate(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Set property but no instance dates
+        $this->client->setProperty('https://example.com/');
+
+        // Create mock API response data
+        $mockRow = $this->createMock(SearchConsole\ApiDataRow::class);
+        $mockRow->expects($this->once())
+            ->method('getKeys')
+            ->willReturn(['2024-02-15']);
+
+        $mockResponse = $this->createMock(SearchConsole\SearchAnalyticsQueryResponse::class);
+        $mockResponse->expects($this->once())
+            ->method('getRows')
+            ->willReturn([$mockRow]);
+
+        // Configure searchanalytics mock to return our response
+        $this->searchanalytics->expects($this->once())
+            ->method('query')
+            ->willReturn($mockResponse);
+
+        // Execute method with valid start date but null end date
+        $customStartDate = new DateTime('2024-02-01');
+        $result = $this->client->getFirstDateWithData($customStartDate, null);
+
+        // Verify result
+        $this->assertInstanceOf(DateTime::class, $result);
+        $this->assertEquals('2024-02-15', $result->format('Y-m-d'));
+    }
 }
 
 /**
