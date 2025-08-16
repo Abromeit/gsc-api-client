@@ -16,6 +16,7 @@ use DateTime;
 use ReflectionMethod;
 use Abromeit\GscApiClient\Enums\GSCDimension as Dimension;
 use Abromeit\GscApiClient\Enums\GSCDeviceType as DeviceType;
+use Abromeit\GscApiClient\Enums\GSCDataState as DataState;
 
 class GscApiClientTest extends TestCase
 {
@@ -599,6 +600,26 @@ class GscApiClientTest extends TestCase
         $this->client->setDevice('INVALID');
     }
 
+    public function testSetDataState(): void
+    {
+        // Test initial state is null
+        $this->assertNull($this->client->getDataState());
+
+        // Test setting each data state
+        $result = $this->client->setDataState(DataState::FINAL);
+        $this->assertSame($this->client, $result);
+        $this->assertEquals(DataState::FINAL, $this->client->getDataState());
+
+        $result = $this->client->setDataState(DataState::ALL);
+        $this->assertSame($this->client, $result);
+        $this->assertEquals(DataState::ALL, $this->client->getDataState());
+
+        // Test clearing data state
+        $result = $this->client->setDataState(null);
+        $this->assertSame($this->client, $result);
+        $this->assertNull($this->client->getDataState());
+    }
+
     public function testSearchAnalyticsQueryRequestWithAllFilters(): void
     {
         // Create mock response for properties
@@ -838,6 +859,61 @@ class GscApiClientTest extends TestCase
 
         // Verify search type is set
         $this->assertEquals('WEB', $request->getType());
+    }
+
+    public function testSearchAnalyticsQueryRequestWithDataState(): void
+    {
+        // Create mock response for properties
+        $propertiesResponse = new SitesListResponse();
+        $propertiesResponse->setSiteEntry([$this->testSite]);
+
+        // Configure mock to return our properties
+        $this->sites->expects($this->once())
+            ->method('listSites')
+            ->willReturn($propertiesResponse);
+
+        // Configure test site and dates
+        $this->client->setProperty('https://example.com/');
+        $this->client->setDates(new DateTime('2024-01-01'), new DateTime('2024-01-01'));
+
+        // Get access to private method
+        $reflection = new ReflectionMethod(GscApiClient::class, 'getNewSearchAnalyticsQueryRequest');
+        $reflection->setAccessible(true);
+
+        // Test 1: No data state set (should be null)
+        $request = $reflection->invoke(
+            $this->client,
+            [Dimension::DATE],
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            5000
+        );
+        $this->assertNull($request->getDataState());
+
+        // Test 2: Instance data state set
+        $this->client->setDataState(DataState::ALL);
+        $request = $reflection->invoke(
+            $this->client,
+            [Dimension::DATE],
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            5000
+        );
+        $this->assertEquals('all', $request->getDataState());
+
+        // Test 3: Parameter overrides instance data state
+        $request = $reflection->invoke(
+            $this->client,
+            [Dimension::DATE],
+            new DateTime('2024-01-01'),
+            new DateTime('2024-01-01'),
+            5000,
+            null, // startRow
+            [], // filters
+            null, // aggregationType
+            DataState::FINAL // dataState parameter
+        );
+        $this->assertEquals('final', $request->getDataState());
     }
 
 

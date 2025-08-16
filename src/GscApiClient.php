@@ -19,6 +19,7 @@ use Abromeit\GscApiClient\Enums\GSCDateFormat as DateFormat;
 use Abromeit\GscApiClient\Enums\GSCDimension as Dimension;
 use Abromeit\GscApiClient\Enums\GSCDeviceType as DeviceType;
 use Abromeit\GscApiClient\Enums\GSCAggregationType as AggregationType;
+use Abromeit\GscApiClient\Enums\GSCDataState as DataState;
 use Abromeit\GscApiClient\BatchProcessor;
 use GuzzleHttp\HandlerStack;
 use Abromeit\GscApiClient\RetryMiddleware;
@@ -60,6 +61,7 @@ class GscApiClient
     private ?string $countryCode = null;
     private ?string $deviceType = null;
     private ?string $searchType = null;
+    private ?DataState $dataState = null;
 
     private RequestCounterMiddleware $requestCounter;
 
@@ -560,6 +562,37 @@ class GscApiClient
 
 
     /**
+     * Set the data state for API requests.
+     *
+     * Controls whether to include fresh (incomplete) data or only final data.
+     * By default, the GSC API returns only final/complete data.
+     *
+     * @param DataState|null $dataState The data state to set, or null to use API default (final)
+     *                                  - DataState::FINAL: Only final/complete data (default)
+     *                                  - DataState::ALL: Fresh data including incomplete data
+     *                                  - DataState::HOURLY_ALL: Fresh data with hourly breakdown
+     *
+     * @return self
+     */
+    public function setDataState(?DataState $dataState): self
+    {
+        $this->dataState = $dataState;
+        return $this;
+    }
+
+
+    /**
+     * Get the currently set data state.
+     *
+     * @return DataState|null The current data state or null if using API default (final)
+     */
+    public function getDataState(): ?DataState
+    {
+        return $this->dataState;
+    }
+
+
+    /**
      * Get the first date with available data for the current property and date range.
      *
      * This method queries Google Search Console to discover which dates have data
@@ -1029,6 +1062,7 @@ class GscApiClient
      *     searchType?: string
      * }                                $filters         - Optional filters for country, device, and search type
      * @param  AggregationType|null     $aggregationType - Aggregation type (defaults to AUTO)
+     * @param  DataState|null           $dataState       - Data state (fresh vs final data)
      *
      * @return SearchAnalyticsQueryRequest
      *
@@ -1041,7 +1075,8 @@ class GscApiClient
         ?int $rowLimit = null,
         ?int $startRow = null,
         array $filters = [],
-        ?AggregationType $aggregationType = null
+        ?AggregationType $aggregationType = null,
+        ?DataState $dataState = null
     ): SearchAnalyticsQueryRequest {
 
         // Validate and normalize parameters
@@ -1076,6 +1111,9 @@ class GscApiClient
         if (!isset($filters['searchType']) && $this->searchType !== null) {
             $filters['searchType'] = $this->searchType;
         }
+
+        // Use instance dataState if not provided in parameter
+        $dataState = $dataState ?? $this->dataState;
 
         // Normalize aggregation type to "all strings"
         $aggregationType = $this->normalizeAggregationType($aggregationType);
@@ -1112,6 +1150,11 @@ class GscApiClient
             $request->setStartRow($startRow);
         }
         $request->setRowLimit($rowLimit);
+
+        // Set data state if specified
+        if ($dataState !== null) {
+            $request->setDataState($dataState->value);
+        }
 
         return $request;
     }

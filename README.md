@@ -12,6 +12,7 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
   - [List Available Properties](#list-available-properties)
   - [Select a Property](#select-a-property)
   - [Set Date Range](#set-date-range)
+  - [Configure Data Freshness](#configure-data-freshness)
   - [Get Search Performance Data](#get-search-performance-data)
   - [Configure Batch Processing](#configure-batch-processing)
   - [Accessing Returned Keyword Data](#accessing-returned-keyword-data)
@@ -124,6 +125,27 @@ $apiClient->setDates(
     new DateTime('2024-01-31')
 );
 ```
+
+### Configure Data Freshness
+
+By default, the GSC API returns only final/complete data. But sometimes you want the freshest data available, even if it's still being processed in GSC. Here's how:
+
+```php
+use Abromeit\GscApiClient\Enums\GSCDataState as DataState;
+
+// Get only final/complete data (default behavior)
+$apiClient->setDataState(DataState::FINAL);
+
+// Get fresh data including incomplete/current data
+$apiClient->setDataState(DataState::ALL);
+
+// Reset to API default (final data only)
+$apiClient->setDataState(null);
+```
+
+**Important:** Fresh data (`ALL`) may be incomplete and can change as Google continues processing. It's perfect for real-time dashboards but use with caution for final reports.
+
+**Note:** `DataState::HOURLY_ALL` is also available for hourly data breakdown, but is currently **untested**. Some internal functions use daily-only time ranges which may not work correctly with hourly data states.
 
 ### Get Search Performance Data
 
