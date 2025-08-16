@@ -332,12 +332,15 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 | `hasDevice()` | `bool` | Checks if a device filter is set |
 | `setSearchType([?string $searchType=null])` | `self` | Sets search type (e.g., 'WEB', 'NEWS') |
 | `getSearchType()` | `string \| null` | Gets the current search type |
+| `setDataState(?DataState $dataState)` | `self` | Sets data state for fresh vs final data |
+| `getDataState()` | `DataState \| null` | Gets the current data state |
+| `getFirstDateWithData([?DateTimeInterface $startDate=null], [?DateTimeInterface $endDate=null])` | `DateTimeInterface \| null` | Gets the first date with available data |
 | `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator=\'equals\'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering |
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, query: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top URLs by day |
 | `getSearchPerformanceByUrl()` | `Generator<array{data_date: string, site_url: string, url: string, query: string, country: string, device: string, impressions: int, clicks: int, sum_top_position: float}>` | Gets all available columns from `byPage` aggregated data sources |
-| `getRequestsPerSecond([int $seconds=1])` | `float` | Gets the current average API queries per second |
-| `getTotalRequests([int $seconds=60])` | `int` | Gets the total number of API queries made |
+| `getRequestsPerSecond()` | `float` | Gets the current average API queries per second |
+| `getTotalRequests()` | `int` | Gets the total number of API queries made |
 
 ## Speed and Resource Requirements
 
