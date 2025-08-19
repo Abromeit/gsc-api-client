@@ -6,6 +6,12 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
 
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [API Reference](#api-reference)
+- [Return Values](#return-values)
+  - [Keyword Data Structure](#keyword-data-structure)
+  - [URL Data Structure](#url-data-structure)
+  - [URL + Keyword Data Structure](#url--keyword-data-structure)
+  - [Search Performance by URL Data Structure](#search-performance-by-url-data-structure)
 - [Usage Examples](#usage-examples)
   - [Example Files](#example-files)
   - [Initialize the Client](#initialize-the-client)
@@ -17,11 +23,6 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
   - [Configure Batch Processing](#configure-batch-processing)
   - [Accessing Returned Keyword Data](#accessing-returned-keyword-data)
   - [Accessing Returned URL Data](#accessing-returned-url-data)
-- [Return Values](#return-values)
-  - [Keyword Data Structure](#keyword-data-structure)
-  - [URL Data Structure](#url-data-structure)
-  - [Search Performance by URL Data Structure](#search-performance-by-url-data-structure)
-- [API Reference](#api-reference)
 - [Speed and Resource Requirements](#speed-and-resource-requirements)
   - [Tested with Large-ish GSC Accounts](#tested-with-large-ish-gsc-accounts)
     - [Test Results](#test-results)
@@ -60,6 +61,133 @@ Before you can start pulling data, you'll need to:
 3. Download your JSON credentials file
 4. Give your service account email access to your GSC properties
 
+## API Reference
+
+Here's everything you can do with the `GscApiClient` class.
+
+| Method Signature | Return Type | Description |
+|-----------------|-------------|-------------|
+| `__construct(Client $client)` | `void` | Initializes a new GSC API client instance |
+| `getBatchSize()` | `int` | Gets the current batch size setting |
+| `setBatchSize(int $batchSize)` | `self` | Sets number of requests to batch (1-1000) |
+| `getProperties()` | `WmxSite[]` | Gets all properties the user has access to |
+| `setProperty(string $siteUrl)` | `self` | Sets the property to work with |
+| `getProperty()` | `string \| null` | Gets the currently set property URL |
+| `hasProperty()` | `bool` | Checks if a property is set |
+| `isDomainProperty([?string $siteUrl=null])` | `bool` | Checks if URL is a domain property |
+| `setStartDate(DateTimeInterface $date)` | `self` | Sets the start date |
+| `setEndDate(DateTimeInterface $date)` | `self` | Sets the end date |
+| `setDates(DateTimeInterface $startDate, DateTimeInterface $endDate)` | `self` | Sets both start and end dates |
+| `clearStartDate()` | `self` | Clears the start date |
+| `clearEndDate()` | `self` | Clears the end date |
+| `clearDates()` | `self` | Clears both dates |
+| `getStartDate()` | `DateTimeInterface \| null` | Gets the start date |
+| `getEndDate()` | `DateTimeInterface \| null` | Gets the end date |
+| `getDates()` | `array{start: DateTimeInterface \| null, end: DateTimeInterface \| null}` | Gets both dates |
+| `hasStartDate()` | `bool` | Checks if start date is set |
+| `hasEndDate()` | `bool` | Checks if end date is set |
+| `hasDates()` | `bool` | Checks if both dates are set |
+| `setCountry([?string $countryCode=null])` | `self` | Sets country using ISO-3166-1-Alpha-3 code |
+| `getCountry()` | `string \| null` | Gets the current country |
+| `hasCountry()` | `bool` | Checks if a country filter is set |
+| `setDevice([DeviceType\|string\|null $deviceType=null])` | `self` | Sets device type |
+| `getDevice()` | `string \| null` | Gets the current device type |
+| `hasDevice()` | `bool` | Checks if a device filter is set |
+| `setSearchType([?string $searchType=null])` | `self` | Sets search type (e.g., 'WEB', 'NEWS') |
+| `getSearchType()` | `string \| null` | Gets the current search type |
+| `setDataState(?DataState $dataState)` | `self` | Sets data state for fresh vs final data |
+| `getDataState()` | `DataState \| null` | Gets the current data state |
+| `getFirstDateWithData([?DateTimeInterface $startDate=null], [?DateTimeInterface $endDate=null])` | `DateTimeInterface \| null` | Gets the first date with available data |
+| `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator=\'equals\'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering |
+| `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, query: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top keywords by day |
+| `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top URLs by day |
+| `getTopUrlsWithKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, query: string \| null, impressions: int, clicks: int, position: float, sum_top_position: float}>` | Gets top URL + Keyword combinations by day |
+| `getSearchPerformanceByUrl()` | `Generator<array{data_date: string, site_url: string, url: string, query: string, country: string, device: string, impressions: int, clicks: int, sum_top_position: float}>` | Gets all available columns from `byPage` aggregated data sources |
+| `getRequestsPerSecond()` | `float` | Gets the current average API queries per second |
+| `getTotalRequests()` | `int` | Gets the total number of API queries made |
+
+## Return Values
+
+The data structure matches [Google's BigQuery schema](#googles-table-schema) (thanks Google for at least being consistent here). If you're curious about the details: https://support.google.com/webmasters/answer/12917991?hl=en
+
+### Keyword Data Structure
+
+Here's what you get for each keyword row:
+
+```php
+/* <Generator> */
+    [
+        'data_date' => string,      // Format: YYYY-MM-DD
+        'site_url' => string,       // Property URL
+        'query' => string,          // Search query
+        'impressions' => int,       // Total impressions
+        'clicks' => int,            // Total clicks
+        'position' => float,        // Average 1-based position
+        'sum_top_position' => float // Sum of (position-1)*impressions
+    ],
+    // etc.
+/* </Generator> */
+```
+
+### URL Data Structure
+
+Here is the actual return format for each row from `getTopUrlsByDay()`:
+
+```php
+/* <Generator> */
+    [
+        'data_date' => string,      // Format: YYYY-MM-DD
+        'site_url' => string,       // Property URL
+        'url' => string,            // Page URL
+        'impressions' => int,       // Total impressions
+        'clicks' => int,            // Total clicks
+        'position' => float,        // Average 1-based position
+        'sum_top_position' => float // Sum of [zero based position]*impressions
+    ]
+/* </Generator> */
+```
+
+### URL + Keyword Data Structure
+
+Here is the return format for each row from `getTopUrlsWithKeywordsByDay()`:
+
+```php
+/* <Generator> */
+    [
+        'data_date' => string,      // Format: YYYY-MM-DD
+        'site_url' => string,       // Property URL
+        'url' => string,            // Page URL
+        'query' => string|null,     // Search query that led to the page (may be null)
+        'impressions' => int,       // Total impressions
+        'clicks' => int,            // Total clicks
+        'position' => float,        // Average 1-based position
+        'sum_top_position' => float // Sum of [zero based position]*impressions
+    ]
+/* </Generator> */
+```
+
+### Search Performance by URL Data Structure
+
+Here is the result for `getSearchPerformanceByUrl()`.
+
+```php
+/* <Generator> */
+    [
+        'data_date' => string,         // Format: YYYY-MM-DD
+        'site_url' => string,          // Property URL
+        'url' => string,               // Page URL
+        'query' => string,             // Search query that led to the page
+        'country' => string,           // ISO-3166-1-Alpha-3 country code
+        'device' => string,            // DESKTOP, MOBILE, or TABLET
+        'impressions' => int,          // Total impressions
+        'clicks' => int,               // Total clicks
+        'position' => float,           // Average 1-based position
+        'sum_top_position' => float    // Sum of [zero based position]*impressions
+    ],
+    // etc.
+/* </Generator> */
+```
+
 ## Usage Examples
 
 ### Example Files
@@ -69,7 +197,7 @@ Check out these ready-to-use examples in the `examples/` directory:
 - [`get-all-properties.php`](examples/get-all-properties.php) - List all GSC properties you have access to
 - [`get-top3-keywords-per-day.php`](examples/get-top3-keywords-per-day.php) - Get the top 3 keywords for each day
 - [`get-top3-urls-per-day.php`](examples/get-top3-urls-per-day.php) - Get the top 3 URLs for each day
- - [`get-top3-urls-with-keywords-per-day.php`](examples/get-top3-urls-with-keywords-per-day.php) - Get the top 3 URL-Keyword combinations for each day
+- [`get-top3-urls-with-keywords-per-day.php`](examples/get-top3-urls-with-keywords-per-day.php) - Get the top 3 URL-Keyword combinations for each day
 
 ### Initialize the Client
 
@@ -230,133 +358,6 @@ foreach ($urlData as $row) {
     echo "Sum Top Position: {$row['sum_top_position']}\n";
 }
 ```
-
-## Return Values
-
-The data structure matches Google's BigQuery schema (thanks Google for at least being consistent here). If you're curious about the details: https://support.google.com/webmasters/answer/12917991?hl=en
-
-### Keyword Data Structure
-
-Here's what you get for each keyword row:
-
-```php
-/* <Generator> */
-    [
-        'data_date' => string,      // Format: YYYY-MM-DD
-        'site_url' => string,       // Property URL
-        'query' => string,          // Search query
-        'impressions' => int,       // Total impressions
-        'clicks' => int,            // Total clicks
-        'position' => float,        // Average 1-based position
-        'sum_top_position' => float // Sum of (position-1)*impressions
-    ],
-    // etc.
-/* </Generator> */
-```
-
-### URL Data Structure
-
-Here is the actual return format for each row from `getTopUrlsByDay()`:
-
-```php
-/* <Generator> */
-    [
-        'data_date' => string,      // Format: YYYY-MM-DD
-        'site_url' => string,       // Property URL
-        'url' => string,            // Page URL
-        'impressions' => int,       // Total impressions
-        'clicks' => int,            // Total clicks
-        'position' => float,        // Average 1-based position
-        'sum_top_position' => float // Sum of [zero based position]*impressions
-    ]
-/* </Generator> */
-```
-
-### URL + Keyword Data Structure
-
-Here is the return format for each row from `getTopUrlsWithKeywordsByDay()`:
-
-```php
-/* <Generator> */
-    [
-        'data_date' => string,      // Format: YYYY-MM-DD
-        'site_url' => string,       // Property URL
-        'url' => string,            // Page URL
-        'query' => string|null,     // Search query that led to the page (may be null)
-        'impressions' => int,       // Total impressions
-        'clicks' => int,            // Total clicks
-        'position' => float,        // Average 1-based position
-        'sum_top_position' => float // Sum of [zero based position]*impressions
-    ]
-/* </Generator> */
-```
-
-### Search Performance by URL Data Structure
-
-Here is the result for `getSearchPerformanceByUrl()`.
-
-```php
-/* <Generator> */
-    [
-        'data_date' => string,         // Format: YYYY-MM-DD
-        'site_url' => string,          // Property URL
-        'url' => string,               // Page URL
-        'query' => string,             // Search query that led to the page
-        'country' => string,           // ISO-3166-1-Alpha-3 country code
-        'device' => string,            // DESKTOP, MOBILE, or TABLET
-        'impressions' => int,          // Total impressions
-        'clicks' => int,               // Total clicks
-        'position' => float,           // Average 1-based position
-        'sum_top_position' => float    // Sum of [zero based position]*impressions
-    ],
-    // etc.
-/* </Generator> */
-```
-
-## API Reference
-
-Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
-
-| Method Signature | Return Type | Description |
-|-----------------|-------------|-------------|
-| `__construct(Client $client)` | `void` | Initializes a new GSC API client instance |
-| `getBatchSize()` | `int` | Gets the current batch size setting |
-| `setBatchSize(int $batchSize)` | `self` | Sets number of requests to batch (1-1000) |
-| `getProperties()` | `WmxSite[]` | Gets all properties the user has access to |
-| `setProperty(string $siteUrl)` | `self` | Sets the property to work with |
-| `getProperty()` | `string \| null` | Gets the currently set property URL |
-| `hasProperty()` | `bool` | Checks if a property is set |
-| `isDomainProperty([?string $siteUrl=null])` | `bool` | Checks if URL is a domain property |
-| `setStartDate(DateTimeInterface $date)` | `self` | Sets the start date |
-| `setEndDate(DateTimeInterface $date)` | `self` | Sets the end date |
-| `setDates(DateTimeInterface $startDate, DateTimeInterface $endDate)` | `self` | Sets both start and end dates |
-| `clearStartDate()` | `self` | Clears the start date |
-| `clearEndDate()` | `self` | Clears the end date |
-| `clearDates()` | `self` | Clears both dates |
-| `getStartDate()` | `DateTimeInterface \| null` | Gets the start date |
-| `getEndDate()` | `DateTimeInterface \| null` | Gets the end date |
-| `getDates()` | `array{start: DateTimeInterface \| null, end: DateTimeInterface \| null}` | Gets both dates |
-| `hasStartDate()` | `bool` | Checks if start date is set |
-| `hasEndDate()` | `bool` | Checks if end date is set |
-| `hasDates()` | `bool` | Checks if both dates are set |
-| `setCountry([?string $countryCode=null])` | `self` | Sets country using ISO-3166-1-Alpha-3 code |
-| `getCountry()` | `string \| null` | Gets the current country |
-| `hasCountry()` | `bool` | Checks if a country filter is set |
-| `setDevice([DeviceType\|string\|null $deviceType=null])` | `self` | Sets device type |
-| `getDevice()` | `string \| null` | Gets the current device type |
-| `hasDevice()` | `bool` | Checks if a device filter is set |
-| `setSearchType([?string $searchType=null])` | `self` | Sets search type (e.g., 'WEB', 'NEWS') |
-| `getSearchType()` | `string \| null` | Gets the current search type |
-| `setDataState(?DataState $dataState)` | `self` | Sets data state for fresh vs final data |
-| `getDataState()` | `DataState \| null` | Gets the current data state |
-| `getFirstDateWithData([?DateTimeInterface $startDate=null], [?DateTimeInterface $endDate=null])` | `DateTimeInterface \| null` | Gets the first date with available data |
-| `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator=\'equals\'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering |
-| `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, query: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top keywords by day |
-| `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top URLs by day |
-| `getTopUrlsWithKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, query: string \| null, impressions: int, clicks: int, position: float, sum_top_position: float}>` | Gets top URL + Keyword combinations by day |
-| `getSearchPerformanceByUrl()` | `Generator<array{data_date: string, site_url: string, url: string, query: string, country: string, device: string, impressions: int, clicks: int, sum_top_position: float}>` | Gets all available columns from `byPage` aggregated data sources |
-| `getRequestsPerSecond()` | `float` | Gets the current average API queries per second |
-| `getTotalRequests()` | `int` | Gets the total number of API queries made |
 
 ## Speed and Resource Requirements
 
