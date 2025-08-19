@@ -710,6 +710,52 @@ class GscApiClient
 
 
     /**
+     * Convert API response rows to match the BigQuery searchdata_site_impression schema.
+     *
+     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
+     *
+     * @return \Generator<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     query: string,
+     *     impressions: int,
+     *     clicks: int,
+     *     sum_top_position: float
+     * }> Converted performance data
+     */
+    public function convertApiResponseKeywordsToArray(
+        array|SearchAnalyticsQueryResponse|null $rows
+    ): \Generator {
+        if ($rows instanceof SearchAnalyticsQueryResponse) {
+            $rows = $rows->getRows();
+        }
+
+        if (empty($rows)) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $keys = $row->getKeys();
+            $clicks = (int)$row->getClicks();
+            $impressions = (int)$row->getImpressions();
+            $position = $row->getPosition();
+
+            $result = [
+                'data_date' => $keys[0],
+                'site_url' => $this->property,
+                'query' => $keys[1],
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'position' => $position,
+                'sum_top_position' => ($position - 1) * $impressions,
+            ];
+
+            yield $result;
+        }
+    }
+
+
+    /**
      * Get the top URLs by day from Google Search Console.
      *
      * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.
@@ -722,7 +768,7 @@ class GscApiClient
      *     impressions: int,       // Total impressions
      *     clicks: int,            // Total clicks
      *     position: float,        // Average 1-based position
-     *     sum_top_position: float // Sum of [zero based position]*impressions
+     *     sum_top_position: float // Sum of (position-1)*impressions
      * }> Generator of daily performance data for top URLs
      *
      * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
@@ -762,7 +808,7 @@ class GscApiClient
 
 
     /**
-     * Convert API response rows to match the search performance schema.
+     * Convert API response rows to match the BigQuery searchdata_site_impression schema.
      *
      * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
      *
@@ -770,16 +816,13 @@ class GscApiClient
      *     data_date: string,
      *     site_url: string,
      *     url: string,
-     *     query: string,
-     *     country: string|null,
-     *     device: string|null,
      *     impressions: int,
      *     clicks: int,
      *     position: int,
      *     sum_top_position: float
      * }> Converted performance data
      */
-    public function convertApiResponseSearchPerformanceToArray(
+    public function convertApiResponseUrlsToArray(
         array|SearchAnalyticsQueryResponse|null $rows
     ): \Generator {
         if ($rows instanceof SearchAnalyticsQueryResponse) {
@@ -800,9 +843,108 @@ class GscApiClient
                 'data_date' => $keys[0],
                 'site_url' => $this->property,
                 'url' => $keys[1],
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'position' => $position,
+                'sum_top_position' => ($position - 1) * $impressions,
+            ];
+
+            yield $result;
+        }
+    }
+
+
+    /**
+     * Get the top URLs with their associated keywords (queries) by day from Google Search Console.
+     *
+     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.
+     *                                    Null for default of 5000.
+     *
+     * @return \Generator<array{
+     *     data_date: string,      // Format: YYYY-MM-DD
+     *     site_url: string,       // Property URL
+     *     url: string,            // Page URL
+     *     query: string|null,     // Search query (may be null)
+     *     impressions: int,       // Total impressions
+     *     clicks: int,            // Total clicks
+     *     position: float,        // Average 1-based position
+     *     sum_top_position: float // Sum of (position-1)*impressions
+     * }> Generator of daily performance data for top URLs with their keywords
+     *
+     * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
+     */
+    public function getTopUrlsWithKeywordsByDay(?int $maxRowsPerDay = null): \Generator
+    {
+        // Define how our request should look like
+        $newBatchRequest = function(DateTimeInterface $date) use ($maxRowsPerDay) {
+            $request = $this->getNewSearchAnalyticsQueryRequest(
+                dimensions: [Dimension::DATE, Dimension::PAGE, Dimension::QUERY],
+                aggregationType: AggregationType::BY_PAGE,
+                startDate: $date,
+                endDate: $date,
+                rowLimit: $maxRowsPerDay
+            );
+
+            return $this->batchProcessor->createBatchRequest(
+                $this->property,
+                $request
+            );
+        };
+
+        // Process all dates in batches of 'n'.
+        $results = $this->batchProcessor->processInBatches(
+            $this->getAllDatesInRange(),
+            $newBatchRequest,
+            [$this, 'convertApiResponseUrlsWithKeywordsToArray']
+        );
+
+        // Yield results instead of merging
+        foreach ($results as $dayResults) {
+            foreach ($dayResults as $result) {
+                yield $result;
+            }
+        }
+    }
+
+
+    /**
+     * Convert API response rows to match a URL + keyword performance schema.
+     *
+     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows
+     *
+     * @return \Generator<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     url: string,
+     *     query: string|null,
+     *     impressions: int,
+     *     clicks: int,
+     *     position: int,
+     *     sum_top_position: float
+     * }>
+     */
+    public function convertApiResponseUrlsWithKeywordsToArray(
+        array|SearchAnalyticsQueryResponse|null $rows
+    ): \Generator {
+        if ($rows instanceof SearchAnalyticsQueryResponse) {
+            $rows = $rows->getRows();
+        }
+
+        if (empty($rows)) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $keys = $row->getKeys();
+            $clicks = (int)$row->getClicks();
+            $impressions = (int)$row->getImpressions();
+            $position = $row->getPosition();
+
+            $result = [
+                'data_date' => $keys[0],
+                'site_url' => $this->property,
+                'url' => $keys[1] ?? null,
                 'query' => $keys[2] ?? null,
-                'country' => $keys[3] ?? null,
-                'device' => $keys[4] ?? null,
                 'impressions' => $impressions,
                 'clicks' => $clicks,
                 'position' => $position,
@@ -898,6 +1040,59 @@ class GscApiClient
             );
 
             $currentStartRow += $maxRowsPerRequest;
+        }
+    }
+
+
+    /**
+     * Convert API response rows to match the search performance schema.
+     *
+     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
+     *
+     * @return \Generator<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     url: string,
+     *     query: string,
+     *     country: string|null,
+     *     device: string|null,
+     *     impressions: int,
+     *     clicks: int,
+     *     position: int,
+     *     sum_top_position: float
+     * }> Converted performance data
+     */
+    public function convertApiResponseSearchPerformanceToArray(
+        array|SearchAnalyticsQueryResponse|null $rows
+    ): \Generator {
+        if ($rows instanceof SearchAnalyticsQueryResponse) {
+            $rows = $rows->getRows();
+        }
+
+        if (empty($rows)) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $keys = $row->getKeys();
+            $clicks = (int)$row->getClicks();
+            $impressions = (int)$row->getImpressions();
+            $position = $row->getPosition();
+
+            $result = [
+                'data_date' => $keys[0],
+                'site_url' => $this->property,
+                'url' => $keys[1],
+                'query' => $keys[2] ?? null,
+                'country' => $keys[3] ?? null,
+                'device' => $keys[4] ?? null,
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'position' => $position,
+                'sum_top_position' => ($position - 1) * $impressions,
+            ];
+
+            yield $result;
         }
     }
 
@@ -1152,99 +1347,6 @@ class GscApiClient
         }
 
         return $request;
-    }
-
-
-    /**
-     * Convert API response rows to match the BigQuery searchdata_site_impression schema.
-     *
-     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
-     *
-     * @return \Generator<array{
-     *     data_date: string,
-     *     site_url: string,
-     *     query: string,
-     *     impressions: int,
-     *     clicks: int,
-     *     sum_top_position: float
-     * }> Converted performance data
-     */
-    public function convertApiResponseKeywordsToArray(
-        array|SearchAnalyticsQueryResponse|null $rows
-    ): \Generator {
-        if ($rows instanceof SearchAnalyticsQueryResponse) {
-            $rows = $rows->getRows();
-        }
-
-        if (empty($rows)) {
-            return;
-        }
-
-        foreach ($rows as $row) {
-            $keys = $row->getKeys();
-            $clicks = (int)$row->getClicks();
-            $impressions = (int)$row->getImpressions();
-            $position = $row->getPosition();
-
-            $result = [
-                'data_date' => $keys[0],
-                'site_url' => $this->property,
-                'query' => $keys[1],
-                'impressions' => $impressions,
-                'clicks' => $clicks,
-                'position' => $position,
-                'sum_top_position' => ($position - 1) * $impressions,
-            ];
-
-            yield $result;
-        }
-    }
-
-
-    /**
-     * Convert API response rows to match the BigQuery searchdata_site_impression schema.
-     *
-     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
-     *
-     * @return \Generator<array{
-     *     data_date: string,
-     *     site_url: string,
-     *     url: string,
-     *     impressions: int,
-     *     clicks: int,
-     *     position: int,
-     *     sum_top_position: float
-     * }> Converted performance data
-     */
-    public function convertApiResponseUrlsToArray(
-        array|SearchAnalyticsQueryResponse|null $rows
-    ): \Generator {
-        if ($rows instanceof SearchAnalyticsQueryResponse) {
-            $rows = $rows->getRows();
-        }
-
-        if (empty($rows)) {
-            return;
-        }
-
-        foreach ($rows as $row) {
-            $keys = $row->getKeys();
-            $clicks = (int)$row->getClicks();
-            $impressions = (int)$row->getImpressions();
-            $position = $row->getPosition();
-
-            $result = [
-                'data_date' => $keys[0],
-                'site_url' => $this->property,
-                'url' => $keys[1],
-                'impressions' => $impressions,
-                'clicks' => $clicks,
-                'position' => $position,
-                'sum_top_position' => ($position - 1) * $impressions,
-            ];
-
-            yield $result;
-        }
     }
 
 

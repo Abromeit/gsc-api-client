@@ -69,6 +69,7 @@ Check out these ready-to-use examples in the `examples/` directory:
 - [`get-all-properties.php`](examples/get-all-properties.php) - List all GSC properties you have access to
 - [`get-top3-keywords-per-day.php`](examples/get-top3-keywords-per-day.php) - Get the top 3 keywords for each day
 - [`get-top3-urls-per-day.php`](examples/get-top3-urls-per-day.php) - Get the top 3 URLs for each day
+ - [`get-top3-urls-with-keywords-per-day.php`](examples/get-top3-urls-with-keywords-per-day.php) - Get the top 3 URL-Keyword combinations for each day
 
 ### Initialize the Client
 
@@ -271,9 +272,28 @@ Here is the actual return format for each row from `getTopUrlsByDay()`:
 /* </Generator> */
 ```
 
+### URL + Keyword Data Structure
+
+Here is the return format for each row from `getTopUrlsWithKeywordsByDay()`:
+
+```php
+/* <Generator> */
+    [
+        'data_date' => string,      // Format: YYYY-MM-DD
+        'site_url' => string,       // Property URL
+        'url' => string,            // Page URL
+        'query' => string|null,     // Search query that led to the page (may be null)
+        'impressions' => int,       // Total impressions
+        'clicks' => int,            // Total clicks
+        'position' => float,        // Average 1-based position
+        'sum_top_position' => float // Sum of [zero based position]*impressions
+    ]
+/* </Generator> */
+```
+
 ### Search Performance by URL Data Structure
 
-Here is the rather comprehensive result for the full "Search Performance by URL".
+Here is the result for `getSearchPerformanceByUrl()`.
 
 ```php
 /* <Generator> */
@@ -287,7 +307,7 @@ Here is the rather comprehensive result for the full "Search Performance by URL"
         'impressions' => int,          // Total impressions
         'clicks' => int,               // Total clicks
         'position' => float,           // Average 1-based position
-        'sum_top_position' => float
+        'sum_top_position' => float    // Sum of [zero based position]*impressions
     ],
     // etc.
 /* </Generator> */
@@ -333,6 +353,7 @@ Here's everything you can do with the `GscApiClient` class. No magic, sadly ;)
 | `getNewApiDimensionFilterGroup(string $dimension, string $expression, [string $operator=\'equals\'])` | `ApiDimensionFilterGroup` | Creates a dimension filter group for custom filtering |
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, query: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top URLs by day |
+| `getTopUrlsWithKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, query: string \| null, impressions: int, clicks: int, position: float, sum_top_position: float}>` | Gets top URL + Keyword combinations by day |
 | `getSearchPerformanceByUrl()` | `Generator<array{data_date: string, site_url: string, url: string, query: string, country: string, device: string, impressions: int, clicks: int, sum_top_position: float}>` | Gets all available columns from `byPage` aggregated data sources |
 | `getRequestsPerSecond()` | `float` | Gets the current average API queries per second |
 | `getTotalRequests()` | `int` | Gets the total number of API queries made |
