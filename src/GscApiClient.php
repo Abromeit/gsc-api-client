@@ -661,22 +661,19 @@ class GscApiClient
     /**
      * Get the top keywords by day from Google Search Console.
      *
-     * @param  int|null $maxRowsPerDay  - Maximum number of rows to return per day, max 5000.
-     *                                    Null for default of 5000.
+     * @param  int|null $maxRowsPerDay  Maximum number of rows to return per day, max 5000. Null for default of 5000.
      *
      * @return \Generator<array{
-     *     data_date: string,
-     *     site_url: string,
-     *     query: string,
-     *     country?: string,
-     *     device?: string,
-     *     impressions: int,
-     *     clicks: int,
-     *     position: int,
-     *     sum_top_position: float
+     *     data_date: string,      // Format: YYYY-MM-DD
+     *     site_url: string,       // Property URL
+     *     query: string,          // Search query
+     *     impressions: int,       // Total impressions
+     *     clicks: int,            // Total clicks
+     *     position: float,        // Average 1-based position
+     *     sum_top_position: float // Sum of (position-1)*impressions
      * }> Generator of daily performance data for top keywords
      *
-     * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
+     * @throws InvalidArgumentException  If no property is set, no data is available, or maxRowsPerDay exceeds the limit
      */
     public function getTopKeywordsByDay(?int $maxRowsPerDay = null): \Generator
     {
@@ -719,15 +716,13 @@ class GscApiClient
      *                                    Null for default of 5000.
      *
      * @return \Generator<array{
-     *     data_date: string,
-     *     site_url: string,
-     *     url: string,
-     *     country?: string,
-     *     device?: string,
-     *     impressions: int,
-     *     clicks: int,
-     *     position: int,
-     *     sum_top_position: float
+     *     data_date: string,      // Format: YYYY-MM-DD
+     *     site_url: string,       // Property URL
+     *     url: string,            // Page URL
+     *     impressions: int,       // Total impressions
+     *     clicks: int,            // Total clicks
+     *     position: float,        // Average 1-based position
+     *     sum_top_position: float // Sum of [zero based position]*impressions
      * }> Generator of daily performance data for top URLs
      *
      * @throws InvalidArgumentException  - If no property is set, dates are not set, or maxRowsPerDay exceeds limit
@@ -1169,8 +1164,6 @@ class GscApiClient
      *     data_date: string,
      *     site_url: string,
      *     query: string,
-     *     country?: string,
-     *     device?: string,
      *     impressions: int,
      *     clicks: int,
      *     sum_top_position: float
@@ -1203,14 +1196,6 @@ class GscApiClient
                 'sum_top_position' => ($position - 1) * $impressions,
             ];
 
-            // Add country and device if available in keys
-            if (count($keys) > 2) {
-                $result['country'] = $keys[2] ?? null;
-            }
-            if (count($keys) > 3) {
-                $result['device'] = $keys[3] ?? null;
-            }
-
             yield $result;
         }
     }
@@ -1225,8 +1210,6 @@ class GscApiClient
      *     data_date: string,
      *     site_url: string,
      *     url: string,
-     *     country?: string,
-     *     device?: string,
      *     impressions: int,
      *     clicks: int,
      *     position: int,
@@ -1259,14 +1242,6 @@ class GscApiClient
                 'position' => $position,
                 'sum_top_position' => ($position - 1) * $impressions,
             ];
-
-            // Add country and device if available in keys
-            if (count($keys) > 2) {
-                $result['country'] = $keys[2] ?? null;
-            }
-            if (count($keys) > 3) {
-                $result['device'] = $keys[3] ?? null;
-            }
 
             yield $result;
         }

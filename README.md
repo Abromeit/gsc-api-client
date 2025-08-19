@@ -241,15 +241,13 @@ Here's what you get for each keyword row:
 ```php
 /* <Generator> */
     [
-        'data_date' => string,         // Format: YYYY-MM-DD
-        'site_url' => string,          // Property URL
-        'query' => string,             // Search query
-        'country' => ?string,          // Optional: ISO-3166-1-Alpha-3 country code
-        'device' => ?string,           // Optional: DESKTOP, MOBILE, or TABLET
-        'impressions' => int,          // Total impressions
-        'clicks' => int,               // Total clicks
-        'position' => float,           // Average 1-based position
-        'sum_top_position' => float    // Sum of (position-1)*impressions
+        'data_date' => string,      // Format: YYYY-MM-DD
+        'site_url' => string,       // Property URL
+        'query' => string,          // Search query
+        'impressions' => int,       // Total impressions
+        'clicks' => int,            // Total clicks
+        'position' => float,        // Average 1-based position
+        'sum_top_position' => float // Sum of (position-1)*impressions
     ],
     // etc.
 /* </Generator> */
@@ -257,22 +255,19 @@ Here's what you get for each keyword row:
 
 ### URL Data Structure
 
-And here is how a result row looks like for URLs:
+Here is the actual return format for each row from `getTopUrlsByDay()`:
 
 ```php
 /* <Generator> */
     [
-        'data_date' => string,         // Format: YYYY-MM-DD
-        'site_url' => string,          // Property URL
-        'url' => string,               // Page URL
-        'country' => ?string,          // Optional: ISO-3166-1-Alpha-3 country code
-        'device' => ?string,           // Optional: DESKTOP, MOBILE, or TABLET
-        'impressions' => int,          // Total impressions
-        'clicks' => int,               // Total clicks
-        'position' => float,           // Average 1-based position
-        'sum_top_position' => float    
-    ],
-    // etc.
+        'data_date' => string,      // Format: YYYY-MM-DD
+        'site_url' => string,       // Property URL
+        'url' => string,            // Page URL
+        'impressions' => int,       // Total impressions
+        'clicks' => int,            // Total clicks
+        'position' => float,        // Average 1-based position
+        'sum_top_position' => float // Sum of [zero based position]*impressions
+    ]
 /* </Generator> */
 ```
 
@@ -292,7 +287,7 @@ Here is the rather comprehensive result for the full "Search Performance by URL"
         'impressions' => int,          // Total impressions
         'clicks' => int,               // Total clicks
         'position' => float,           // Average 1-based position
-        'sum_top_position' => float    
+        'sum_top_position' => float
     ],
     // etc.
 /* </Generator> */
@@ -395,7 +390,7 @@ The result is 499 days of data in 2,495,000 rows. Each row contains a keyword wi
 
 ##### How to find a good BatchSize
 
-The yield implementation keeps memory in check while matching speed. 
+The yield implementation keeps memory in check while matching speed.
 But note that Google enforces a per-site quota of `20 requests per second` = `120 api calls per minute` (see [Google's QPS Quota](https://developers.google.com/webmaster-tools/limits?hl=en#qps-quota)). Higher batch sizes will make you feel good about some measured metrics, but they're lying to you - the API is just dropping your requests.
 
 **Stick to batch sizes below 20** unless you are fully aware of the implications, as exceeding the quota can lead to unnecessarily long runtimes. Which is the opposite of what you want.
@@ -414,7 +409,7 @@ Here is another test fetching 3 months of data using `getSearchPerformanceByUrl(
 | 175        | 4,505,486  | 3,386.8 MB  | 2,229.5 MB | 142.8s  | 31,547     | 1.29 |
 
 - 91 days of data (2024-11-06 to 2025-02-06)
-- ~49,510 rows per day (min: 48,860, max: 49,772) 
+- ~49,510 rows per day (min: 48,860, max: 49,772)
 - Total data volume: 4.5M rows, ~1.2GB compressed JSON
 
 
