@@ -12,6 +12,7 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
   - [URL Data Structure](#url-data-structure)
   - [URL + Keyword Data Structure](#url--keyword-data-structure)
   - [Search Performance by URL Data Structure](#search-performance-by-url-data-structure)
+  - [Search Performance by Date Data Structure](#search-performance-by-date-data-structure)
 - [Usage Examples](#usage-examples)
   - [Example Files](#example-files)
   - [Initialize the Client](#initialize-the-client)
@@ -23,6 +24,7 @@ A **PHP client** for the Google Search Console API that makes it easy to import 
   - [Configure Batch Processing](#configure-batch-processing)
   - [Accessing Returned Keyword Data](#accessing-returned-keyword-data)
   - [Accessing Returned URL Data](#accessing-returned-url-data)
+  - [Accessing Returned Performance-by-Date Data](#accessing-returned-performance-by-date-data)
 - [Speed and Resource Requirements](#speed-and-resource-requirements)
   - [Tested with Large-ish GSC Accounts](#tested-with-large-ish-gsc-accounts)
     - [Test Results](#test-results)
@@ -102,6 +104,7 @@ Here's everything you can do with the `GscApiClient` class.
 | `getTopKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, query: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top keywords by day |
 | `getTopUrlsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, country: string \| null, device: string \| null, impressions: int, clicks: int, sum_top_position: float}>` | Gets top URLs by day |
 | `getTopUrlsWithKeywordsByDay([?int $maxRowsPerDay=null])` | `Generator<array{data_date: string, site_url: string, url: string, query: string \| null, impressions: int, clicks: int, position: float, sum_top_position: float}>` | Gets top URL + Keyword combinations by day |
+| `getSearchPerformanceByDate()` | `Generator<array{data_date: string, site_url: string, impressions: int, clicks: int, position: float, sum_top_position: float}>` | Gets aggregated search performance data by day |
 | `getSearchPerformanceByUrl()` | `Generator<array{data_date: string, site_url: string, url: string, query: string, country: string, device: string, impressions: int, clicks: int, sum_top_position: float}>` | Gets all available columns from `byPage` aggregated data sources |
 | `getRequestsPerSecond()` | `float` | Gets the current average API queries per second |
 | `getTotalRequests()` | `int` | Gets the total number of API queries made |
@@ -163,6 +166,24 @@ Here is the return format for each row from `getTopUrlsWithKeywordsByDay()`:
         'position' => float,        // Average 1-based position
         'sum_top_position' => float // Sum of [zero based position]*impressions
     ]
+/* </Generator> */
+```
+
+### Search Performance by Date Data Structure
+
+Here is the result for `getSearchPerformanceByDate()`.
+
+```php
+/* <Generator> */
+    [
+        'data_date' => string,      // Format: YYYY-MM-DD
+        'site_url' => string,       // Property URL
+        'impressions' => int,       // Total impressions
+        'clicks' => int,            // Total clicks
+        'position' => float,        // Average 1-based position
+        'sum_top_position' => float // Sum of (position-1)*impressions
+    ],
+    // etc.
 /* </Generator> */
 ```
 
@@ -281,17 +302,23 @@ $apiClient->setDataState(null);
 Aaand here's where the magic happens:
 
 ```php
-// Get daily performance data
+// Get daily keyword performance data
 $keywordData = $apiClient->getTopKeywordsByDay();
 
-// Get URL data (max 25k rows per request)
+// Get daily performance data with allover sums of clicks, imressions, etc.
+// Including those of anyonymized queries.
+// By default, the output matches the chart data of the unfiltered 
+// https://search.google.com/search-console/performance/search-analytics?resource_id=[YOUR-PROPERTY-NAME]&breakdown=date
+$dailyPerformance = $apiClient->getSearchPerformanceByDate();
+
+// Get daily URL performance data (max 25k rows per request)
 $urlData = $apiClient->getTopUrlsByDay();
 
 // Want fewer rows? No problem
 $keywordData = $apiClient->getTopKeywordsByDay(100);
 $urlData = $apiClient->getTopUrlsByDay(10);
 
-// Get comprehensive search performance data
+// Get search performance data with as many details as possible
 $performanceData = $apiClient->getSearchPerformanceByUrl();
 
 // Filter by country (ISO-3166-1-Alpha-3, because apparently ISO codes weren't confusing enough)
@@ -356,6 +383,19 @@ foreach ($urlData as $row) {
     echo "Clicks: {$row['clicks']}\n";
     echo "Impressions: {$row['impressions']}\n";
     echo "Sum Top Position: {$row['sum_top_position']}\n";
+}
+```
+
+### Accessing Returned Performance-by-Date Data
+
+```php
+$dailyData = $apiClient->getSearchPerformanceByDate();
+
+foreach ($dailyData as $row) {
+    echo "Date: {$row['data_date']}\n";
+    echo "Clicks: {$row['clicks']}\n";
+    echo "Impressions: {$row['impressions']}\n";
+    echo "Position: ".number_format($row['position'], 1)."\n";
 }
 ```
 
