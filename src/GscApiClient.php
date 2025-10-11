@@ -957,6 +957,99 @@ class GscApiClient
 
 
     /**
+     * Get aggregated search performance data by date.
+     *
+     * @return \Generator<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     impressions: int,
+     *     clicks: int,
+     *     position: float,
+     *     sum_top_position: float
+     * }> Generator of daily aggregated performance data
+     *
+     * @throws InvalidArgumentException  - If no property is set or dates are not set
+     */
+    public function getSearchPerformanceByDate(): \Generator
+    {
+        // Define how our request should look like
+        $newBatchRequest = function(DateTimeInterface $date) {
+            $request = $this->getNewSearchAnalyticsQueryRequest(
+                dimensions: [Dimension::DATE],
+                aggregationType: AggregationType::BY_PROPERTY,
+                startDate: $date,
+                endDate: $date,
+                rowLimit: 1
+            );
+
+            return $this->batchProcessor->createBatchRequest(
+                $this->property,
+                $request
+            );
+        };
+
+        // Process all dates in batches
+        $results = $this->batchProcessor->processInBatches(
+            $this->getAllDatesInRange(),
+            $newBatchRequest,
+            [$this, 'convertApiResponsePerformanceByDateToArray']
+        );
+
+        // Yield results
+        foreach ($results as $dayResults) {
+            foreach ($dayResults as $result) {
+                yield $result;
+            }
+        }
+    }
+
+
+    /**
+     * Convert API response rows to aggregated daily performance data.
+     *
+     * @param  array<\Google\Service\SearchConsole\ApiDataRow>|SearchAnalyticsQueryResponse|null  $rows  - The API response rows
+     *
+     * @return \Generator<array{
+     *     data_date: string,
+     *     site_url: string,
+     *     impressions: int,
+     *     clicks: int,
+     *     position: float,
+     *     sum_top_position: float
+     * }> Converted performance data
+     */
+    public function convertApiResponsePerformanceByDateToArray(
+        array|SearchAnalyticsQueryResponse|null $rows
+    ): \Generator {
+        if ($rows instanceof SearchAnalyticsQueryResponse) {
+            $rows = $rows->getRows();
+        }
+
+        if (empty($rows)) {
+            return;
+        }
+
+        foreach ($rows as $row) {
+            $keys = $row->getKeys();
+            $clicks = (int)$row->getClicks();
+            $impressions = (int)$row->getImpressions();
+            $position = $row->getPosition();
+
+            $result = [
+                'data_date' => $keys[0],
+                'site_url' => $this->property,
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'position' => $position,
+                'sum_top_position' => ($position - 1) * $impressions,
+            ];
+
+            yield $result;
+        }
+    }
+
+
+    /**
      * Get the top URLs by day from Google Search Console.
      *
      * @return \Generator<array{
