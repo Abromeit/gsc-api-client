@@ -11,9 +11,9 @@ use Abromeit\GscApiClient\Traits\SearchAnalyticsQueryCounter;
  * Middleware that implements a token bucket algorithm to ensure we stay under API rate limits.
  * Uses a target rate of 18 requests per second (90% of Google's 20 QPS limit) for safety.
  *
- * The bucket size is set to 900 tokens (50 seconds worth of requests at target QPS).
- * This allows for efficient batch processing while maintaining a safe margin below
- * Google's quota of 1,200 requests per minute.
+ * The bucket size is set to 50 tokens (~2.8 seconds of buffer at target QPS).
+ * This prevents bursts that exceed Google's instantaneous 20 QPS limit while
+ * maintaining efficient batch processing and staying under the 1,200 QPM quota.
  */
 class ThrottlingMiddleware
 {
@@ -26,11 +26,10 @@ class ThrottlingMiddleware
 
     /**
      * Maximum bucket size (number of tokens that can be accumulated).
-     * Set to 900 (50 seconds worth of requests at target QPS).
-     * This allows for efficient batch processing while staying under
-     * Google's quota of 1,200 requests per minute.
+     * Set to 50 (~2.8 seconds of buffer at target QPS).
+     * Prevents bursts large enough to exceed Google's instantaneous 20 QPS limit.
      */
-    private const MAX_BUCKET_SIZE = 900.0;
+    private const MAX_BUCKET_SIZE = 50.0;
 
     /**
      * @var float  - Current number of tokens in the bucket
